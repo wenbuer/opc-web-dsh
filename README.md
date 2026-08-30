@@ -7,7 +7,7 @@
 
 ## 工作台示意图
 
-![pic1](.\images\pic1.png)
+![pic1](./images/pic1.png)
 
 ## 它是什么
 
