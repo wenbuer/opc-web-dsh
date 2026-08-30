@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPC 指挥中心 · 作战面板</title>
+<link rel="stylesheet" href="/static/main.css">
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span>OPC 指挥中心 <em>作战面板</em></div>
+    <div class="clock" id="clock"></div>
+    <div class="statbar">
+      <span class="stat seal-red" id="statPending">待裁决 —</span>
+      <span class="stat seal-ink" id="statArchived">已批阅 —</span>
+      <span class="stat ok" id="statSrv">后端…</span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-view="home"><span>01</span>作战面板</button>
+    <button class="tab" data-view="piyue"><span>02</span>批阅台</button>
+    <button class="tab" data-view="workbench"><span>03</span>工作台</button>
+    <button class="tab" data-view="kb"><span>04</span>知识库</button>
+    <button class="tab" data-view="daily"><span>05</span>每日简报</button>
+    <button class="tab" data-view="settings"><span>06</span>设置</button>
+  </nav>
+
+  <main>
+    <!-- ===== 作战面板：组织架构 + 角色工作区 ===== -->
+    <section id="view-home" class="view active">
+      <div class="home-grid">
+        <div class="org-panel">
+          <div class="panel-head">组织架构 · 当前 Agent 角色与职责 <em>点击角色卡片看工作区与角色卡（可 ✎ 编辑）· 底部「＋ 新增角色」弹窗新建</em></div>
+          <div class="org-tree">
+            <div class="org-node root">
+              <span class="oid">R0</span>
+              <div class="obody"><b>创始人（人）</b><i>定方向、拍板、花真钱、见真人</i></div>
+              <span class="ostatus red">指挥中</span>
+            </div>
+            <div class="org-link">指令 / 决策</div>
+            <div class="org-node hub">
+              <span class="oid">R1</span>
+              <div class="obody"><b>老板助理（枢纽）</b><i>拆任务→派角色→汇报告→提决策点→整理归档</i></div>
+              <span class="ostatus gold">执行中</span>
+            </div>
+            <div class="org-link">调度</div>
+            <div class="org-grid" id="orgGrid"></div>
+            <div class="org-node add" id="orgAdd" title="点击打开弹窗，新增角色（自动编号 R10+：角色卡《agents/R?.role.md》 + 工作区《名称/》 + preset 部署）">
+              <span class="oid">＋</span>
+              <div class="obody"><b>新增角色</b><i>自动编号 R10+ · 生成角色卡 + 工作区《名称/》 + preset 部署</i></div>
+              <span class="ostatus gold">＋ 新增</span>
+            </div>
+          </div>
+        </div>
+        <div class="role-panel">
+          <div class="panel-head">角色工作区 <em id="roleDetailTitle">选择左侧角色卡片查看</em></div>
+          <div id="roleDetail" class="role-detail">
+            <div class="role-pane card">
+              <div class="pane-title">角色卡 <em id="roleCardTitle">未选择</em> <button id="btnEditRole" class="btn-gold small" style="display:none">✎ 编辑角色</button></div>
+              <div id="roleCardBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色角色卡全文（本项目 agents/ 维护）</div></div>
+            </div>
+            <div class="role-pane files">
+              <div class="pane-title">工作区产物 <em id="roleFilesTitle">未选择</em></div>
+              <div id="roleFilesBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色工作区产物（<角色名称>/）列表</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tl-strip">
+        <div class="panel-head">OPC 时间线（横轴） <em>数据源：决策日志 D 编号 · 时间从左至右</em></div>
+        <div class="timeline-h" id="timeline"></div>
+      </div>
+    </section>
+
+    <!-- ===== 批阅台 ===== -->
+    <section id="view-piyue" class="view">
+      <div class="piyue-layout">
+        <aside class="shelf">
+          <div class="shelf-head">待裁决文件 <em id="pendingCount"></em></div>
+          <div id="pendingList" class="card-list"></div>
+          <div class="shelf-head dim">已批阅归档</div>
+          <div id="archiveList" class="arch-list"></div>
+        </aside>
+        <div class="piyue-main">
+          <div id="pendingDetail" class="dossier">
+            <div class="placeholder">← 从左侧选取一份待裁决文件，此处展开【背景 / R 建议 / 需要 R0 拍板什么】</div>
+          </div>
+          <div id="piyueForm" class="verdict-slip" hidden>
+            <div class="slip-lab">裁决签（R0 盖章生效）</div>
+            <textarea id="opinionInput" placeholder="批阅意见（可留空，如：预算上限 1000 元、启动日期、附加条件）"></textarea>
+            <div class="seal-row">
+              <button class="seal approve" data-judge="✅ 批准">批准</button>
+              <button class="seal ink" data-judge="❌ 驳回">驳回</button>
+              <button class="seal amend" data-judge="✏️ 修改">修改</button>
+            </div>
+            <p id="piyueStatus" class="form-status"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 知识库 ===== -->
+    <section id="view-kb" class="view">
+      <div class="kb-topbar">📚 知识库 <em>管理员：老板助理（枢纽）R1 · 全体角色共同维护 —— 各角色产出先落《工作区/<角色名称>/回报-待落库.md》，经 R1 审核归档进入《知识库/》，档案只读</em></div>
+      <div id="kbGrid" class="kb-grid"></div>
+      <div id="kbDoc" class="kb-doc" style="display:none"></div>
+    </section>
+
+    <!-- ===== 每日简报 ===== -->
+    <section id="view-daily" class="view">
+      <div class="daily-layout">
+        <aside class="daily-list"><h2>简报归档</h2><div id="dailyFiles" class="card-list"></div></aside>
+        <div class="daily-main"><div id="dailyTitle" class="file-title">选择简报查看</div><div id="dailyBody" class="markdown-body"></div></div>
+      </div>
+    </section>
+
+    <!-- ===== 工作台：任务上传下达 / 执行角色 ===== -->
+    <section id="view-workbench" class="view">
+      <div class="dispatch-panel">
+        <div class="panel-head pane-ctl">任务工作台
+          <em>下达 → R1 自动拆解 → 派发各角色执行 → 回报归档；点任务行看详情</em>
+          <span class="sched-ctl">
+            <span id="schedStat" class="dq-state"></span>
+            <button id="btnToggleSched" class="btn-gold small">⏸ 暂停</button>
+            <button id="btnArchiveR1" class="btn-gold small">🗂 归档</button>
+          </span>
+        </div>
+        <div class="launch-row">
+          <input id="dqInput" placeholder="下达任务，比如：R8 继续迭代首页时间线交互" />
+          <button id="btnOneClick" class="btn-gold launch-btn">▶ 下达 · R1 自动拆解派发</button>
+        </div>
+        <div class="launch-state"><span id="dqState" class="dq-state">等待下达 —— 输入任务后点「▶ 下达」，R1 自动拆解并派发给各角色执行</span></div>
+        <div class="wb-cols">
+          <div class="wb-col wb-left">
+            <div class="wb-col-head">任务列表 <em>点击任务行 → 右侧看详情</em></div>
+            <div id="dqQueue" class="dq-table"><div class="placeholder">排队中 —— 在上方下达第一个任务</div></div>
+            <div class="listen-panel">
+              <div class="panel-head pane-ctl listen-head">📡 agent 执行监听 <em>直跑观测 / 主会话实时，一个开关开始/暂停</em>
+                <span class="src-switch"><select id="srcSel" class="src-sel"><option value="run">直跑观测</option><option value="main">主会话实时</option></select><button id="btnListenToggle" class="btn-gold small">▶ 开始监听</button><span id="runState" class="dq-state">未监听</span></span>
+              </div>
+              <div class="listen-body">
+                <div class="run-form">
+                  <input id="runInput" placeholder="直跑观测任务，如：R3 以内容工厂身份写一段产品介绍文案（主会话实时无需填写）">
+                </div>
+                <div id="runLog" class="run-log"><div class="placeholder">未监听 —— 点「▶ 开始监听」：直跑观测需先填任务（或监听服务器上已运行的观测）；主会话实时直接监听 DSH 主会话 R1/subagent 执行事件</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="wb-col">
+            <div class="wb-col-head">任务详情 <em>派发单 · 执行角色 · 回报 · 产物 · 调度日志</em></div>
+            <div id="actPanel" class="act-panel"><div class="placeholder">← 点击任务行（T-xxx）后，这里显示 R1 的派发单与执行角色</div></div>
+            <div id="taskOut" class="task-out"><div class="placeholder">← 点击任务行后，这里聚合显示该任务的回报、派发、产物与调度日志</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 设置：左侧栏（目录设置 / 模型接入 / 定时任务）+ 右侧内容面板；角色新增/编辑移至作战面板弹窗 ===== -->
+    <section id="view-settings" class="view">
+      <div class="settings-layout">
+        <aside class="settings-nav">
+          <div class="settings-nav-head">⚙ 设置</div>
+          <button class="snav-item" data-snav="dir">① 目录设置</button>
+          <button class="snav-item" data-snav="model">② 模型接入</button>
+          <button class="snav-item" data-snav="schedule">③ 定时任务</button>
+        </aside>
+        <div class="settings-main">
+          <div class="snav-pane active" data-pane="dir">
+            <div class="set-head">目录设置 <em>只需填一个根目录（写 opc-config.json）；保存后自动生成 批阅台/工作区/知识库 三个文件夹，工作区按角色名称建子文件夹</em></div>
+            <div class="dir-row">
+              <input id="setKbRoot" placeholder="根目录（相对项目根或绝对路径，如 .）">
+              <button id="btnRootDefault" class="mini">📁 项目根默认</button>
+              <span id="kbStatus" class="dir-status"></span>
+              <button id="btnSaveSettings">保存配置</button>
+              <span id="setMsg" class="set-msg"></span>
+            </div>
+            <div class="set-note">
+              <b>目录自动结构</b> 只填一个根目录，保存后自动生成三文件夹：
+              <code>批阅台/</code>（R0/R1 公文：批阅台 · 任务队列 · 派发单 · 回报队列 · 调度日志 · 决策日志）·
+              <code>工作区/<角色名称>/</code>（每个角色一个，如 工作区/需求研究员/）·
+              <code>知识库/</code>（角色架构 · 索引等档案）。
+              不再有 决策/运营/营销 等静态分类 —— 分类由各角色产出自然形成。
+              端口固定 8901（如需改：改 opc-config.json 的 port 或设环境变量 OPC_PORT 后重启控制台）。
+              <br><b>角色卡装载三通道（影响 dsh 本身）</b>
+              ① agent-preset：角色 preset 部署到 <code>~/.dsh/.agent-presets/opc-r?</code>，会话选择后由其派出的所有子 agent 自动继承；
+              ② persona：会话/子 agent 的 system persona 注入角色核心；
+              ③ prompt 注入：subagent 派发时把《agents/R?.role.md》全文注入任务 prompt。
+              <br>角色定义只存在于本项目 <code>agents/</code>（角色卡 + presets-src/），全局 dsh 配置不被写入。</div>
+          </div>
+          <div class="snav-pane" data-pane="model">
+            <div class="set-head">大模型 API（模型接入） <em>接入方式同 dsh 模型 API：提供方 → 凭据引用 <code>&lt;ROUTE&gt;_API_KEY</code>（环境变量 / 项目根 .env），密钥不进 opc-config.json 明文；baseURL / 模型可按部署覆盖</em></div>
+            <div class="mapi-row">
+              <label>提供方
+                <select id="mApiProvider">
+                  <option value="deepseek">DeepSeek（DEEPSEEK_API_KEY）</option>
+                  <option value="openai">OpenAI（OPENAI_API_KEY）</option>
+                  <option value="anthropic">Anthropic（ANTHROPIC_API_KEY）</option>
+                  <option value="custom">自定义（CUSTOM_API_KEY）</option>
+                </select>
+              </label>
+              <label>API Key ｜ 只写项目根 .env（不回显 / 不落配置明文）
+                <input id="mApiKey" type="password" placeholder="粘贴密钥（留空 = 保持已配置密钥不变）" autocomplete="off">
+              </label>
+              <label>Base URL（可覆盖提供方默认）
+                <input id="mApiBase" placeholder="https://api.deepseek.com">
+              </label>
+              <label>模型 Id（可选）
+                <input id="mApiModel" placeholder="deepseek-chat / gpt-4o-mini / claude-sonnet-4-5">
+              </label>
+            </div>
+            <div class="mapi-row mapi-actions">
+              <button id="btnSaveModelApi">💾 保存模型 API 配置</button>
+              <button id="btnTestModelApi">🔌 测试连通（真实请求 1 token）</button>
+              <span id="mApiMsg" class="set-msg"></span>
+            </div>
+            <div class="set-note" id="mApiNote"></div>
+          </div>
+          <div class="snav-pane" data-pane="schedule">
+            <div class="set-head">定时任务 <em>到点自动写入《批阅台/任务下达队列.md》+ 调度日志，生成调度指令，由常驻主会话 R1 拆解派发执行（控制台只下达，不跑 agent）</em></div>
+            <div class="sched-grid">
+              <div class="sched-col">
+                <div class="sched-col-head">已配置 · 到点自动触发 <em>启停 / 删除</em></div>
+                <div id="schedList" class="sched-list"></div>
+              </div>
+              <div class="sched-col">
+                <div class="sched-col-head">＋ 新增定时任务 <em>创建后由 R1 执行</em></div>
+                <div class="form sched-form">
+                  <div class="sched-fld"><label>任务指令</label>
+                    <textarea id="schedTask" placeholder="如：R3 以内容工厂身份把本周产品动态整理成《知识库索引.md》新条目"></textarea>
+                  </div>
+                  <div class="sched-fld"><label>触发模式</label>
+                    <select id="schedMode">
+                      <option value="daily">每天（固定时刻）</option>
+                      <option value="weekly">每周（星期几 + 时刻）</option>
+                      <option value="interval">每隔 N 分钟</option>
+                    </select>
+                  </div>
+                  <div class="sched-fld sched-fld-inline">
+                    <div><label>时刻 HH:MM（每天 / 每周）</label><input id="schedTime" placeholder="如 09:30"></div>
+                    <div><label>星期 0=周一 … 6=周日（每周）</label><input id="schedWeekday" placeholder="如 1"></div>
+                    <div><label>间隔分钟（间隔模式）</label><input id="schedInterval" placeholder="如 60"></div>
+                  </div>
+                  <div class="sched-actions">
+                    <button id="btnSchedAdd">＋ 添加定时任务</button>
+                    <span id="schedMsg"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===== 新增/编辑角色弹窗（作战面板：完成角色新增与角色卡 ✎ 编辑，自动编号 R10+） ===== -->
+  <div class="modal-mask" id="roleModal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><span id="roleModalTitle">＋ 新增角色</span><em id="roleModalHint">自动编号 R10+ · 与「设置 → 角色创建」同一新增流程：角色卡 + 工作区《名称/》 + preset 部署</em><button class="modal-x" id="btnModalClose" title="关闭（Esc）">×</button></div>
+      <div class="form">
+        <input id="mRlName" placeholder="名称（必填，web 引用/工作区创建用）">
+        <input id="mRlPosition" placeholder="一句话定位">
+        <input id="mRlType" placeholder="类型（业务/技术/运营…）">
+        <textarea id="mRlDuty" placeholder="职责（每行一条，回车分隔）"></textarea>
+      </div>
+      <div class="modal-foot">
+        <button id="btnModalRoleSave">保存（生成角色卡 + 工作区《名称/》 + preset 部署）</button>
+        <span id="mRoleMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 删除角色确认弹窗（作战面板角色卡 🗑：二次确认后才调 /api/roles/delete） ===== -->
+  <div class="modal-mask" id="delRoleModal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><span>⚠ 确认删除角色</span><em>二次确认 · 删除将移除角色卡 / preset / 工作区 / 架构登记（不可恢复）</em><button class="modal-x" id="btnDelClose" title="取消（Esc）">×</button></div>
+      <div class="del-role-info" id="delRoleInfo"></div>
+      <div class="modal-foot">
+        <button id="btnDelCancel">取消</button>
+        <button id="btnDelYes">确认删除</button>
+        <span id="delRoleMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <footer>数据实时直读 md（知识库/OPC智能体角色架构.md · 批阅台/决策日志.md · 批阅台/批阅台.md · 批阅台/每日简报-*.md）｜ 指挥中心 v1.10 · R1 维护 · R8 前端设计</footer>
+</div>
+<script src="/static/main.js"></script>
+</body>
+</html>

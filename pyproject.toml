@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "opc-web"
+version = "1.7.0"
+description = "OPC 控制台（opc-web）——所有 OPC 指令的指挥入口：知识库看板 / R0 批阅台 / 任务下达队列 / R1 多角色协同调度（纯标准库实现）"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "R1 枢纽", role = "opc-web 维护" }]
+keywords = ["opc", "agents", "console", "knowledge-base"]
+
+[project.scripts]
+opc-web = "opc_web.__main__:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
