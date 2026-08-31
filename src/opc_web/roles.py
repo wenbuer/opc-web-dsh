@@ -11,12 +11,6 @@ import re
 from . import agent, config
 
 CARD_TPL = """# OPC 角色卡：%(no)s %(name)s
-> 版本 v1.0（%(today)s · R1 创建）｜纪律：只读知识库、产出写工作区、不拍板/不花钱/不发布
-> 角色卡装载通道（v1.8 · 替代 headless one-shot）：
->   ① agent-preset：会话选择 ~/.dsh/.agent-presets/opc-%(idlower)s/（正规载体，自动继承给该会话派出的所有子 agent）；
->   ② persona（工具配置）：会话/子 agent 的 system persona 注入本卡核心；
->   ③ prompt 注入（派发直达）：主会话 R1 按《%(dispatch)s》用 DSH subagent 派发时，把本卡全文注入子 agent prompt。
-
 ## 身份
 - 编号：%(no)s｜名称：%(name)s｜类型：%(type_)s
 - 一句话定位：%(position)s
