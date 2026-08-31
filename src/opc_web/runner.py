@@ -26,6 +26,12 @@ def _append(ev: dict) -> int:
         return _ACTIVE["seq"]
 
 
+def emit(ev: dict) -> int:
+    """公开事件入口：供自动执行链/调度把阶段事件写进同一事件流，
+    工作台「agent 执行监听」面板即可实时轮询显示。"""
+    return _append(ev)
+
+
 def _assemble(task: str) -> str:
     """若任务以 R? 开头，自动注入对应角色卡全文作为 persona 上下文。"""
     m = re.match(r"^R(\d+)\b", task.strip())
@@ -202,4 +208,3 @@ def run_headless_sync(task_text: str, timeout: float = 600) -> str:
     except Exception:
         pass
     return "".join(out).strip()
-

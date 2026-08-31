@@ -150,6 +150,32 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         url = self.path.split("?", 1)[0]
+        if url == "/api/retry":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                no = str(body.get("no", "")).strip()
+            except Exception:
+                self._json({"ok": False, "msg": "JSON 解析失败"}, 400)
+                return
+            if not no:
+                self._json({"ok": False, "msg": "缺少任务编号 no"}, 400)
+                return
+            before = queue.parse_queue()
+            hit = [t for t in before if t["no"] == no]
+            if not hit:
+                self._json({"ok": False, "msg": "任务 " + no + " 不在队列中"}, 404)
+                return
+            retried = False
+            if hit[0]["status"] == "阻塞":
+                queue.retry_task(no)
+                retried = True
+                scheduler.scan_once()  # 立即扫描：置待派后马上重启执行链（busy 时自然排队）
+            self._json({"ok": True, "no": no, "retried": retried,
+                        "queue": queue.parse_queue(),
+                        "msg": ("重试 " + no + "：已重置为待派并触发扫描") if retried
+                               else (no + " 状态为「" + hit[0]["status"] + "」，无需重试")})
+            return
         if url == "/api/dispatch":
             length = int(self.headers.get("Content-Length", 0))
             try:
@@ -254,6 +280,28 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"ok": True, "result": r})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
+            return
+
+        if url == "/api/settings":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                mbody = body.get("model") or {}
+                res = config.save_model(mbody, dry=bool(body.get("dry", False)))
+                mi = config.model_info()
+                res["configured"] = mi["configured"]
+                res["keyMasked"] = mi["keyMasked"]
+                self._json({"ok": True, "model": res})
+            except Exception as e:
+                self._json({"ok": False, "msg": "保存模型配置失败: " + str(e)[:200]}, 500)
+            return
+        if url == "/api/model/test":
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                self._json(config.test_model(body, timeout=20))
+            except Exception as e:
+                self._json({"ok": False, "msg": "模型连通测试异常: " + str(e)[:200]}, 500)
             return
         if url == "/api/roles/delete":
             try:

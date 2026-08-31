@@ -51,6 +51,11 @@ def update_queue(no: str, status: str, report: str = "—") -> bool:
     return True
 
 
+def retry_task(no: str) -> bool:
+    """重试：将队列中指定任务状态重置为「待派」，使调度扫描重新执行。"""
+    return update_queue(no, "待派")
+
+
 def dispatch_task(text: str, expect: str) -> str:
     """首页「任务下达」→ 追加队列（R1 判断为默认期望）。"""
     return append_queue(text, expect)
