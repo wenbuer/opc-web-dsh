@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OPC 指挥中心 · 作战面板</title>
-<link rel="stylesheet" href="/static/main.css">
+<link rel="stylesheet" href="/static/main.css?v=20260216d">
 </head>
 <body>
 <div class="shell">
@@ -59,7 +59,7 @@
           <div id="roleDetail" class="role-detail">
             <div class="role-pane card">
               <div class="pane-title">角色卡 <em id="roleCardTitle">未选择</em> <button id="btnEditRole" class="btn-gold small" style="display:none">✎ 编辑角色</button></div>
-              <div id="roleCardBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色角色卡全文（本项目 agents/ 维护）</div></div>
+              <div id="roleCardBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色角色卡全文</div></div>
             </div>
             <div class="role-pane files">
               <div class="pane-title">工作区产物 <em id="roleFilesTitle">未选择</em></div>
@@ -134,19 +134,14 @@
         <div class="launch-state"><span id="dqState" class="dq-state">等待下达 —— 输入任务后点「▶ 下达」，R1 自动拆解并派发给各角色执行</span></div>
         <div class="wb-cols">
           <div class="wb-col wb-left">
-            <div class="wb-col-head">任务列表 <em>点击任务行 → 右侧看详情</em></div>
+            <div class="wb-col-head">任务列表 <em>点击任务行 → 中间看执行监听 / 右侧看详情</em></div>
             <div id="dqQueue" class="dq-table"><div class="placeholder">排队中 —— 在上方下达第一个任务</div></div>
-            <div class="listen-panel">
-              <div class="panel-head pane-ctl listen-head">📡 agent 执行监听 <em>直跑观测 / 主会话实时，一个开关开始/暂停</em>
-                <span class="src-switch"><select id="srcSel" class="src-sel"><option value="run">直跑观测</option><option value="main">主会话实时</option></select><button id="btnListenToggle" class="btn-gold small">▶ 开始监听</button><span id="runState" class="dq-state">未监听</span></span>
-              </div>
-              <div class="listen-body">
-                <div class="run-form">
-                  <input id="runInput" placeholder="直跑观测任务，如：R3 以内容工厂身份写一段产品介绍文案（主会话实时无需填写）">
-                </div>
-                <div id="runLog" class="run-log"><div class="placeholder">未监听 —— 点「▶ 开始监听」：直跑观测需先填任务（或监听服务器上已运行的观测）；主会话实时直接监听 DSH 主会话 R1/subagent 执行事件</div></div>
-              </div>
-            </div>
+          </div>
+          <div class="wb-col">
+            <div class="wb-col-head">📡 agent 执行监听 <em>直跑观测 / 主会话实时，一个开关开始/暂停；一键下达后自动开始，实时滚动拆解与各角色执行</em></div>
+            <div class="src-switch"><select id="srcSel" class="src-sel"><option value="run">直跑观测</option><option value="main">主会话实时</option></select><button id="btnListenToggle" class="btn-gold small">▶ 开始监听</button><span id="runState" class="dq-state">未监听</span></div>
+            <div class="run-form"><input id="runInput" placeholder="直跑观测任务，如：R3 以内容工厂身份写一段产品介绍文案（留空 = 只监听服务器上正在执行的链）"></div>
+            <div id="runLog" class="run-log"><div class="placeholder">未监听 —— 点「▶ 开始监听」；一键下达后自动开始：实时滚动 R1 拆解 → 各角色执行 → 回报事件</div></div>
           </div>
           <div class="wb-col">
             <div class="wb-col-head">任务详情 <em>派发单 · 执行角色 · 回报 · 产物 · 调度日志</em></div>
@@ -181,12 +176,7 @@
               <code>批阅台/</code>（R0/R1 公文：批阅台 · 任务队列 · 派发单 · 回报队列 · 调度日志 · 决策日志）·
               <code>工作区/<角色名称>/</code>（每个角色一个，如 工作区/需求研究员/）·
               <code>知识库/</code>（角色架构 · 索引等档案）。
-              不再有 决策/运营/营销 等静态分类 —— 分类由各角色产出自然形成。
               端口固定 8901（如需改：改 opc-config.json 的 port 或设环境变量 OPC_PORT 后重启控制台）。
-              <br><b>角色卡装载三通道（影响 dsh 本身）</b>
-              ① agent-preset：角色 preset 部署到 <code>~/.dsh/.agent-presets/opc-r?</code>，会话选择后由其派出的所有子 agent 自动继承；
-              ② persona：会话/子 agent 的 system persona 注入角色核心；
-              ③ prompt 注入：subagent 派发时把《agents/R?.role.md》全文注入任务 prompt。
               <br>角色定义只存在于本项目 <code>agents/</code>（角色卡 + presets-src/），全局 dsh 配置不被写入。</div>
           </div>
           <div class="snav-pane" data-pane="model">
@@ -283,9 +273,7 @@
       </div>
     </div>
   </div>
-
-  <footer>数据实时直读 md（知识库/OPC智能体角色架构.md · 批阅台/决策日志.md · 批阅台/批阅台.md · 批阅台/每日简报-*.md）｜ 指挥中心 v1.10 · R1 维护 · R8 前端设计</footer>
 </div>
-<script src="/static/main.js"></script>
+<script src="/static/main.js?v=20260216e"></script>
 </body>
 </html>

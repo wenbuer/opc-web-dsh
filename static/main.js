@@ -74,14 +74,18 @@
         box.innerHTML = "<div class='placeholder'>该任务暂无派发行（R1 未拆解或已归档）——点击左列其他任务切换</div>";
         return;
       }
-      box.innerHTML = "<div class='act-ctx'>当前任务：<b>" + esc(activeNo) + "</b> · " + rows.length + " 行 · 执行角色见下</div>";
+      box.innerHTML = "<div class='act-ctx'>当前任务：<b>" + esc(activeNo) + "</b> · 执行角色</div><div id='actRoles' class='act-roles'></div>";
+      var tagBox = $("actRoles");
+      var seenRoles = {};
       (rows || []).forEach(function(x){
-        var el = document.createElement("div");
-        el.className = "act-item";
-        el.title = "点击查看该任务输出";
-        el.innerHTML = "<span class='ano'>" + esc(x.no) + "</span><span class='arole'>" + esc(roleName(x.role)) + " <em>" + esc(x.role) + "</em></span><span class='ast'>" + esc(x.st || "") + "</span><div class='asub'>" + esc(x.sub) + "</div>";
-        el.addEventListener("click", function(){ showTaskOutput(x.no, null); });
-        box.appendChild(el);
+        if (seenRoles[x.role]) return;  // 同任务同角色只显示一个（多轮拆解累积时去重）
+        seenRoles[x.role] = 1;
+        var tag = document.createElement("span");
+        tag.className = "act-role-tag";
+        tag.title = x.sub + "（点击查看该任务输出）";
+        tag.innerHTML = esc(x.role) + " " + esc(roleName(x.role)) + "<em>" + esc(x.st || "") + "</em>";
+        tag.addEventListener("click", function(){ showTaskOutput(x.no, null); });
+        tagBox.appendChild(tag);
       });
     }).catch(function(){});
   }
@@ -215,7 +219,21 @@
           + "<span class='dtask'>" + esc(t.task) + "</span>"
           + "<span class='dexpect'>" + esc(t.expect) + "</span>"
           + "<span class='dstatus'>" + esc(t.status) + "</span>"
-          + (t.report && t.report !== "—" ? "<em class='dreport'>" + esc(t.report) + "</em>" : "");
+          + (t.report && t.report !== "—" ? "<em class='dreport'>" + esc(t.report) + "</em>" : "")
+          + (t.status === "阻塞" ? "<button class='dretry' title='重试：重置为待派并重新触发执行链'>↻ 重试</button>" : "");
+        var btR = row.querySelector(".dretry");
+        if (btR) btR.addEventListener("click", function(ev){
+          ev.stopPropagation();
+          btR.disabled = true; btR.textContent = "↻ 重试中…";
+          api("/api/retry", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({no: t.no})}).then(function(j){
+            if (!j || !j.ok){ btR.disabled = false; btR.textContent = "↻ 重试"; alert((j && j.msg) || "重试失败"); return; }
+            btR.textContent = "✓ 已重置";
+            loadQueue();
+            autoListenChain();
+            var st = $("dqState");
+            if (st && j.msg) st.textContent = j.msg;
+          }).catch(function(){ btR.disabled = false; btR.textContent = "↻ 重试"; });
+        });
         row.addEventListener("click", function(){ showTaskOutput(t.no, row); });
         box.appendChild(row);
       });
@@ -339,6 +357,7 @@
       if (stj) stj.innerHTML = "已下达 <b>" + esc(j.no) + "</b> —— 全自动流水线：R1 拆解 → subagent 派发各角色 → 回报落库";
       loadQueue();
       pollAuto(j.no);
+      autoListenChain();
     }).catch(function(e){ if (stj) stj.textContent = "下达异常：" + e.message; });
   }
   function pollAuto(no){
@@ -610,13 +629,24 @@
     if (task){
       runStart();   // 直跑观测开跑（内部已启动事件轮询）
     } else {
-      if (st) st.textContent = "观测中（无任务输入）";
+      if (st) st.textContent = "观测中（自动跟随执行链，无手动任务）";
+      var lg0 = $("runLog");
+      if (lg0 && lg0.querySelector(".placeholder")) lg0.innerHTML = "";
       if (state.runTimer) clearInterval(state.runTimer);
       state.runSeq = 0;
       state.runTimer = setInterval(runTick, 1400);
       runTick();
     }
   }
+  function autoListenChain(){
+    // 一键下达 → 自动切到「直跑观测」源并开监听：实时滚动自动执行链（R1 拆解 → 各角色执行 → 回报）事件
+    var ss = $("srcSel");
+    if (ss && ss.value !== "run"){ setRunSrc("run"); return autoListenChain(); }
+    if (!state.listenOn){ listenStart(); }
+    var lg = $("runLog");
+    if (lg && lg.querySelector(".placeholder")) lg.innerHTML = "";
+  }
+
   function listenStop(){
     state.listenOn = false;
     var bt = $("btnListenToggle");

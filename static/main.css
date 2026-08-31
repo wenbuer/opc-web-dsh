@@ -195,11 +195,6 @@ main{flex:1;overflow:hidden}
 .markdown-body pre code{background:none;padding:0;color:#a8c4e6}
 .markdown-body hr{border:none;border-top:1px dashed var(--line);margin:18px 0}
 
-footer{
-  padding:6px 22px;border-top:1px solid var(--line);font-size:10.5px;color:var(--faint);
-  display:flex;justify-content:space-between;letter-spacing:.5px;
-}
-/* ================= 首页作战面板（任务架构/时间线/当前任务） ================= */
 .home-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:16px;height:100%;padding:16px 20px;overflow:auto}
 .panel-head{font-size:12px;letter-spacing:2px;color:var(--gold);margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .panel-head em{font-style:normal;color:var(--faint);font-size:10.5px;letter-spacing:.5px}
@@ -284,7 +279,7 @@ footer{
 .dq-state.busy{color:var(--gold);animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.45}}
 .dq-table{display:flex;flex-direction:column;gap:5px;margin-top:10px}
-.dq-row{display:grid;grid-template-columns:64px 96px 1fr 90px 64px;gap:8px;align-items:center;padding:6px 10px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:7px;font-size:10.5px}
+.dq-row{display:grid;grid-template-columns:64px 96px 1fr 90px 64px auto;gap:8px;align-items:center;padding:6px 10px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:7px;font-size:10.5px}
 .dq-row.open{border-color:rgba(231,76,60,.45)}
 .dq-row.done{opacity:.6}
 .dq-row .dno{font-family:var(--mono);color:var(--gold)}
@@ -335,7 +330,9 @@ footer{
 /* ===== 作战面板：角色卡 / 工作区产物 双框 ===== */
 .role-detail{display:flex;flex-direction:column;gap:10px;border:none;padding:0;background:transparent;max-height:none;overflow:visible}
 .role-pane{background:rgba(0,0,0,.22);border:1px solid var(--line2);border-radius:10px;padding:10px 12px}
-.role-pane .pane-title{font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:8px;border-bottom:1px dashed var(--line2);padding-bottom:6px}
+.role-pane .pane-title{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:8px;border-bottom:1px dashed var(--line2);padding-bottom:6px}
+.role-pane .pane-title em{flex:1}
+#btnEditRole{margin-left:auto;flex:none}
 .role-pane .pane-title em{color:var(--faint);font-style:normal;margin-left:6px;letter-spacing:0}
 .role-pane .pane-body{max-height:240px;overflow-y:auto;padding-right:4px}
 .role-pane .pane-body::-webkit-scrollbar{width:6px}
@@ -424,23 +421,16 @@ footer{
 .a-item.active .t{color:var(--gold)}
 
 /* ===== 工作台：按钮下方左右两栏（左=任务/展开，右=调度记录） ===== */
-.wb-cols{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-top:12px;align-items:start}
-@media (max-width:1100px){.wb-cols{grid-template-columns:1fr}}
+.wb-cols{display:grid;grid-template-columns:1fr 1.12fr .95fr;gap:14px;margin-top:12px;align-items:stretch}
+@media (max-width:1100px){.wb-cols{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}}
 .wb-col{display:flex;flex-direction:column;gap:8px;min-width:0}
 .wb-col{display:flex;flex-direction:column;min-width:0}
 .wb-left .dq-table{max-height:280px;overflow-y:auto}
-.listen-panel{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18);overflow:hidden}
-.listen-head{padding:10px 12px}
-.listen-head em{display:block;font-size:11px;color:var(--sub);margin-top:2px}
-.listen-head .src-switch{margin-top:6px}
+.wb-col .run-log{max-height:300px}
+.src-switch{margin:2px 0 8px}
 .src-sel{background:var(--panel2);color:var(--txt);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12px;cursor:pointer}
 .src-sel:focus{outline:none;border-color:var(--gold)}
 .src-sel option{background:var(--panel2);color:var(--txt)}
-.listen-body{padding:8px 12px 12px}
-.listen-body .run-form{display:flex;gap:8px;padding:4px 0 6px}
-.listen-body .run-form input{flex:1;min-width:0;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);padding:9px 12px;border-radius:8px;font-size:12.5px}
-.listen-body .run-form input:focus{outline:none;border-color:var(--gold)}
-.listen-body .run-log{max-height:300px;overflow-y:auto;margin-top:2px}
 .dq-state.on{color:var(--ok);border-color:var(--ok)}
 .dq-state.paused{color:var(--gold);border-color:var(--gold)}
 
@@ -664,8 +654,8 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 #btnSaveModelApi:active,#btnTestModelApi:active{transform:scale(.98)}
 
 /* ===== 作战面板角色卡：删除按钮（右下角，避免与右上状态徽章重叠） ===== */
-.role-card .rc-del{position:absolute;right:8px;bottom:8px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;line-height:1.3;font-weight:600;opacity:.85;transition:all .15s ease}
-.role-card .rc-del:hover{opacity:1;color:var(--red-bright);border-color:rgba(231,76,60,.6);background:rgba(231,76,60,.1);box-shadow:0 2px 10px rgba(231,76,60,.25);transform:scale(1.05)}
+.role-card .rc-del{position:absolute;right:8px;top:50%;transform:translateY(calc(-50% + 30px));background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;line-height:1.3;font-weight:600;opacity:.85;transition:all .15s ease}
+.role-card .rc-del:hover{opacity:1;color:var(--red-bright);border-color:rgba(231,76,60,.6);background:rgba(231,76,60,.1);box-shadow:0 2px 10px rgba(231,76,60,.25);transform:translateY(calc(-50% + 30px)) scale(1.05)}
 .role-card .rc-cur{padding-right:30px}
 /* 删除确认弹窗 */
 .del-role-info{border:1px dashed rgba(231,76,60,.45);background:rgba(231,76,60,.05);border-radius:9px;padding:11px 13px;font-size:11px;color:var(--dim);line-height:1.7}
@@ -693,42 +683,63 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .sched-badge.on{color:var(--gold);background:rgba(232,183,61,.12);border:1px solid rgba(232,183,61,.45)}
 .sched-badge.off{color:var(--faint);background:rgba(255,255,255,.04);border:1px solid var(--line)}
 .sched-mode{font-size:9.5px;font-family:var(--mono);color:var(--dim);background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:5px;padding:2px 7px}
-.sched-id{font-size:9px;font-family:var(--mono);color:var(--faint);margin-left:auto}
-.sched-task{font-size:11px;color:var(--txt);line-height:1.55;background:rgba(0,0,0,.18);border-radius:7px;padding:7px 9px;white-space:pre-wrap;word-break:break-all}
-.sched-meta{display:flex;gap:14px;flex-wrap:wrap;font-size:9px;font-family:var(--mono);color:var(--faint)}
-.sched-ops{display:flex;gap:8px;margin-top:2px}
-.sched-ops button{flex:1;padding:6px 10px;font-size:10px;letter-spacing:.5px;border-radius:7px;cursor:pointer;font-family:inherit;transition:all .15s ease}
-.sched-btn-on{background:rgba(232,183,61,.08);color:var(--gold);border:1px solid rgba(232,183,61,.5)}
-.sched-btn-on:hover{background:rgba(232,183,61,.2);box-shadow:0 0 10px rgba(232,183,61,.2)}
-.sched-btn-off{background:transparent;color:var(--dim);border:1px solid var(--line)}
-.sched-btn-off:hover{color:var(--red-bright);border-color:var(--red-bright)}
-/* 右侧新增表单 */
-.sched-form{gap:11px}
-.sched-form .sched-fld{display:flex;flex-direction:column;gap:5px}
-.sched-form label{font-size:9px;letter-spacing:1.5px;color:var(--dim)}
-.sched-fld-inline{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
-.sched-fld textarea{min-height:70px;resize:vertical}
-.sched-form input,.sched-form select,.sched-form textarea{padding:8px 10px;font-size:11.5px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;outline:none;transition:border-color .15s ease, box-shadow .15s ease;font-family:inherit;width:100%}
-.sched-form input:focus,.sched-form select:focus,.sched-form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(232,183,61,.15)}
-.sched-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:4px}
-#btnSchedAdd{background:linear-gradient(135deg,#f2cd73,#e8b73d 60%,#d9a52e);color:#1a1206;font-weight:700;border:none;border-radius:8px;padding:10px 16px;font-size:12px;letter-spacing:1px;cursor:pointer;transition:transform .12s ease, box-shadow .18s ease;box-shadow:0 2px 8px rgba(0,0,0,.35)}
-#btnSchedAdd:hover{box-shadow:0 4px 16px rgba(232,183,61,.35);transform:translateY(-1px)}
-#btnSchedAdd:active{transform:scale(.97)}
-#schedMsg{display:block;font-size:10.5px;min-height:14px;color:var(--txt)}
-/* ===== 设置视图：左侧栏 + 右侧内容面板（v1.11） ===== */
-.settings-layout{display:grid;grid-template-columns:200px minmax(0,1fr);gap:16px;margin:16px 20px 20px;align-items:start}
-@media (max-width:1100px){.settings-layout{grid-template-columns:1fr}}
-.settings-nav{display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;position:sticky;top:8px;align-self:start}
-.settings-nav-head{font-size:10.5px;letter-spacing:2.5px;color:var(--gold);font-weight:700;border-bottom:1px dashed var(--line2);padding:2px 2px 9px;margin-bottom:2px}
-.snav-item{display:block;width:100%;text-align:left;padding:9px 12px;font-size:12px;letter-spacing:1px;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--dim);cursor:pointer;font-family:inherit;transition:all .15s ease}
-.snav-item:hover{border-color:var(--gold);color:var(--gold);background:rgba(232,183,61,.06)}
-.snav-item.active{background:linear-gradient(135deg,#f2cd63,#e8b73d 55%,#d9a52e);color:#1a1206;font-weight:700;border-color:#f4d57a;box-shadow:0 2px 10px rgba(232,183,61,.28)}
-.settings-main{min-width:0}
-.snav-pane{display:none;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+/* 工作台最终覆盖：三列 + 执行角色一行弹性标签 + 输出聚合填充剩余列高 */
+.wb-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr) minmax(0,.95fr);grid-template-rows:minmax(0,1fr);gap:14px;margin-top:10px;flex:1;min-height:0}
+.wb-cols .wb-col{min-height:0;overflow:hidden}
+.wb-col .act-panel{flex:none;max-height:none;overflow:visible;margin-bottom:8px}
+.wb-col .task-out{flex:1;max-height:none;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.act-roles{display:flex;flex-wrap:wrap;gap:6px;padding:2px 0 4px}
+/* 角色工作区：✎ 编辑角色 按钮推到 pane 右上角 */
+#btnEditRole{margin-left:auto;flex:none}
+
+/* 工作台高度链最终兜底（覆盖历史旧规则）：列高锁定容器、内部滚动 */
+.wb-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr) minmax(0,.95fr);grid-template-rows:minmax(0,1fr);gap:14px;margin-top:10px;flex:1;min-height:0;max-height:100%;align-items:stretch}
+.wb-cols .wb-col{display:flex;flex-direction:column;gap:8px;min-height:0;overflow:hidden;height:100%}
+.wb-cols .wb-col-head{flex:none}
+.wb-cols .wb-left .dq-table{flex:1;min-height:0;max-height:none;overflow-y:auto}
+.wb-cols .wb-col .act-panel{flex:none;max-height:none;overflow:visible;margin-bottom:8px}
+.wb-cols .wb-col .task-out{flex:1;min-height:0;max-height:none;overflow-y:auto;overscroll-behavior:contain}
+.wb-cols .run-log{flex:1;min-height:0;max-height:none;overflow-y:auto}
+
+/* 铁规则（!important）：无论历史规则如何层叠，三列锁定容器高、列内各自滚动 */
+.wb-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.12fr) minmax(0,.95fr);grid-template-rows:minmax(0,1fr);gap:14px;margin-top:10px;flex:1;min-height:0;max-height:100%;align-items:stretch !important}
+.wb-cols .wb-col{display:flex;flex-direction:column;gap:8px;min-height:0 !important;overflow:hidden !important;height:100% !important}
+.wb-cols .wb-col-head{flex:none !important;max-height:none !important}
+.wb-cols .wb-col .act-panel{flex:none !important;max-height:180px !important;overflow-y:auto !important;margin-bottom:8px !important;overscroll-behavior:contain !important}
+.wb-cols .wb-col .task-out{flex:1 1 0 !important;min-height:0 !important;max-height:none !important;height:auto !important;overflow-y:auto !important;overscroll-behavior:contain !important}
+.wb-cols .wb-left .dq-table{flex:1 1 0 !important;min-height:0 !important;max-height:none !important;overflow-y:auto !important}
+.wb-cols .run-log{flex:none !important;min-height:0 !important;max-height:320px !important;overflow-y:auto !important;overscroll-behavior:contain !important}
+
+/* 执行角色标签（act-role-tag）：小卡片样式，多角色挤一行、按需换行（act-roles flex-wrap） */
+.act-roles .act-role-tag{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line2);border-left:3px solid var(--gold);background:rgba(232,183,61,.08);border-radius:7px;padding:3px 9px;font-size:11px;color:var(--txt);cursor:pointer;white-space:nowrap;transition:all .15s ease;line-height:1.4}
+.act-roles .act-role-tag:hover{border-color:var(--gold);background:rgba(232,183,61,.18);color:var(--gold)}
+.act-roles .act-role-tag em{font-style:normal;font-size:9.5px;color:var(--faint);border-left:1px solid var(--line2);padding-left:6px;margin-left:2px}
+
+/* 阻塞任务行：↻ 重试按钮（行尾，警示金） */
+.dq-row .dretry{margin-left:12px;flex:none;align-self:center;background:rgba(231,76,60,.12);border:1px solid rgba(231,76,60,.5);color:#ff8a80;border-radius:6px;padding:2px 9px;font-size:10px;cursor:pointer;line-height:1.5;font-weight:600;transition:all .15s ease}
+.dq-row .dretry:hover{background:rgba(231,76,60,.25);color:#ffb3ab;box-shadow:0 2px 8px rgba(231,76,60,.3)}
+.dq-row .dretry:disabled{opacity:.6;cursor:default}
+
+/* 阻塞行重试按钮：grid 第 6 列 auto（同排行尾，不换行） */
+.dq-row{grid-template-columns:64px 96px 1fr 90px 64px auto !important}
+
+/* ===== 设置页：三 tab 布局（补齐缺失类，与整体暗色风格统一） ===== */
+.settings-layout{display:flex;gap:16px;margin:16px 20px 20px;align-items:flex-start;min-width:0}
+.settings-nav{flex:none;width:200px;display:flex;flex-direction:column;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;align-self:stretch}
+.settings-nav-head{font-size:11px;letter-spacing:1.5px;color:var(--gold);border-bottom:1px dashed var(--line2);padding-bottom:8px;margin-bottom:2px}
+.snav-item{text-align:left;background:rgba(255,255,255,.03);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:11px;cursor:pointer;transition:all .15s ease;letter-spacing:.5px}
+.snav-item:hover{border-color:var(--gold);color:var(--gold)}
+.snav-item.active{border-color:var(--gold);background:rgba(232,183,61,.12);color:var(--gold);font-weight:600}
+.settings-main{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.snav-pane{display:none}
 .snav-pane.active{display:block}
-
-
-
-
-
-
+/* 定时任务表单 */
+.sched-fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.sched-fld>label{font-size:10px;color:var(--dim);letter-spacing:.5px}
+.sched-fld input,.sched-fld textarea,.sched-fld select{background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:11.5px;font-family:inherit;width:100%;box-sizing:border-box}
+.sched-fld input:focus,.sched-fld textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(232,183,61,.15);outline:none}
+.sched-fld textarea{min-height:64px;resize:vertical}
+.sched-fld-inline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.sched-actions{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+/* 修正 mapi-actions 类名（HTML 是 mapi-actions，旧 CSS 误写 .map-actions） */
+.mapi-row.mapi-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
