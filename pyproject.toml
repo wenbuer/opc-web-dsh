@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "opc-web"
-version = "1.7.0"
-description = "OPC 控制台（opc-web）——所有 OPC 指令的指挥入口：知识库看板 / R0 批阅台 / 任务下达队列 / R1 多角色协同调度（纯标准库实现）"
+version = "1.15.0"
+description = "OPC 控制台（opc-web）——所有 OPC 指令的指挥入口：知识库看板 / R0 批阅台 / SQLite 任务台账 / R1 多角色协同调度（纯标准库实现）"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

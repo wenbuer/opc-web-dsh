@@ -45,10 +45,13 @@ WORKSPACE_ROOT = ROOT / "工作区"   # 角色作业区（按角色名称建子�
 # 数据文件位置（相对根目录）
 WORKSPACE_REL = "工作区"
 PIYUETAI_REL = "批阅台/批阅台.md"
+DB_REL = "批阅台/opc.db"               # 状态台账（任务/子任务/回报）—— 唯一真相，见 store.py
+LOG_REL = "批阅台/决策日志.md"          # R0 决策记录 + 派发单（parsers 读取）
+
+# 已退役的 md 表格（仅供一次性迁移入库与 legacy 归档定位，程序不再读写）
 QUEUE_REL = "批阅台/任务下达队列.md"
 REPORT_REL = "批阅台/回报队列.md"
 DISPATCH_REL = "批阅台/派发单-动态.md"
-LOG_REL = "批阅台/决策日志.md"          # R0 决策记录 + 派发单（parsers 读取）
 SCHED_LOG_REL = "批阅台/调度日志.md"   # R1/控制台运行日志（log_schedule 追加）
 ARCH_REL = "知识库/OPC智能体角色架构.md"
 INDEX_REL = "知识库/知识库索引.md"
@@ -67,19 +70,10 @@ def piyuetai_file():
     return ROOT / PIYUETAI_REL
 
 
-def queue_file():
-    """任务下达队列。"""
-    return ROOT / QUEUE_REL
+def db_file():
+    """状态台账 SQLite（跟随 ROOT，测试可猴补丁 config.ROOT）。"""
+    return ROOT / DB_REL
 
-
-def report_file():
-    """回报队列。"""
-    return ROOT / REPORT_REL
-
-
-def dispatch_file():
-    """派发单（动态）。"""
-    return ROOT / DISPATCH_REL
 
 
 def wb_root():
@@ -94,22 +88,54 @@ def kb_root():
 
 # ---------- 配置读写（「设置」视图 /api/settings 使用） ----------
 
-SETTING_KEYS = ("root", "port")
+SETTING_KEYS = ("root", "port")          # 设置页可写的字段；其余键只允许手改 opc-config.json
+
+# 运行调参：手改 opc-config.json 即时生效（每次读盘，文件几百字节，代价可忽略）。
+# 刻意不进 SETTING_KEYS —— 这些是调优旋钮，不该占设置页的位置。
+_TUNABLES = {
+    "pollSeconds": 8,           # 调度守护轮询间隔（秒）
+    "decomposeTimeout": 480,    # 拆解任务时 headless 的无输出超时（秒）
+    "maxSubtasks": 2,           # 单个任务最多拆成几个并行子任务
+}
+
+
+def tune(key: str) -> int:
+    """读取运行调参；缺失 / 非法 / 0 一律回退默认值，负数取下限 1。"""
+    default = _TUNABLES[key]
+    try:
+        return max(1, int(_load_cfg().get(key) or default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _write_cfg(patch: dict) -> dict:
+    """配置写入的唯一出口：读盘 → 合并 patch（值为 None = 删除该键）→ 写盘 → 刷新内存。
+
+    必须读盘再合并，不能基于内存 _CFG 覆写：内存快照可能落后于文件（另一个 save
+    刚写过，或用户手改过 opc-config.json），基于它覆写会静默丢段——实测「保存端口」
+    会把刚存的 model 段抹掉。"""
+    global _CFG
+    cur = _load_cfg()
+    for k, v in patch.items():
+        if v is None:
+            cur.pop(k, None)
+        else:
+            cur[k] = v
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
+    _CFG = cur
+    return cur
 
 
 def save_cfg(kv: dict) -> dict:
-    """把给定字段合并写入配置文件（空值=删除该字段），返回写后全文。"""
-    cur = dict(_CFG)
+    """把设置页字段（SETTING_KEYS 白名单）合并写入配置文件（空值=删除该字段）。"""
+    patch = {}
     for k, v in kv.items():
         if k not in SETTING_KEYS:
             continue
-        if v is None or (isinstance(v, str) and not v.strip()):
-            cur.pop(k, None)
-        else:
-            cur[k] = v.strip() if isinstance(v, str) else v
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
-    return cur
+        blank = v is None or (isinstance(v, str) and not v.strip())
+        patch[k] = None if blank else (v.strip() if isinstance(v, str) else v)
+    return _write_cfg(patch)
 
 
 def reload() -> dict:
@@ -222,32 +248,36 @@ def read_env_file() -> dict:
             if not s or s.startswith("#") or "=" not in s:
                 continue
             k, _, v = s.partition("=")
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
+                v = v[1:-1]          # dotenv 惯例：剥外层引号，否则引号会混进 API Key
             if k:
-                out[k.strip()] = v.strip()
+                out[k.strip()] = v
     except Exception:
         pass
     return out
 
 
 def write_env(name: str, value) -> None:
-    """把 name=value 写入项目根 .env（value 为 None → 删除该行）。"""
+    """把 name=value 写入项目根 .env（value 为 None → 删除该行）。
+
+    不吞异常：这是凭据路径，写盘失败必须让调用方（/api/settings）报出来，
+    否则界面显示「已保存」而 Key 根本没落盘。"""
     cur = read_env_file()
     if value is None:
         cur.pop(name, None)
     else:
         cur[name] = str(value).strip()
-    try:
-        keep = []
+    keep = []
+    if ENV_FILE.exists():
         for ln in ENV_FILE.read_text(encoding="utf-8").splitlines():
             k = ln.split("=", 1)[0].strip() if "=" in ln else ln.strip()
             if k in cur:
                 continue
             keep.append(ln)
-        rows = ["%s=%s" % (k, v) for k, v in cur.items()]
-        ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
-        ENV_FILE.write_text("\n".join(keep + rows) + ("\n" if (keep + rows) else ""), encoding="utf-8")
-    except Exception:
-        pass
+    rows = ["%s=%s" % (k, v) for k, v in cur.items()]
+    ENV_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ENV_FILE.write_text("\n".join(keep + rows) + ("\n" if (keep + rows) else ""), encoding="utf-8")
 
 
 def save_model(body: dict, dry: bool = False) -> dict:
@@ -278,10 +308,7 @@ def save_model(body: dict, dry: bool = False) -> dict:
     }
     if dry:
         return result
-    cur = dict(_CFG)
-    cur["model"] = section
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
+    _write_cfg({"model": section})
     if api_key:
         write_env(api_key_env, api_key)
         os.environ[api_key_env] = api_key
@@ -326,12 +353,8 @@ def load_schedules() -> list:
 
 
 def save_schedules(jobs: list) -> None:
-    """把任务列表写回 opc-config.json 并同步内存 _CFG（不触发 reload，避免重扫目录）。"""
-    cur = dict(_CFG)
-    cur["schedule"] = jobs or []
-    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps(cur, ensure_ascii=False, indent=2) + chr(10), encoding="utf-8")
-    _CFG.update(cur)
+    """把任务列表写回 opc-config.json（不触发 reload，避免重扫目录）。"""
+    _write_cfg({"schedule": jobs or []})
 
 
 def schedule_next(job: dict, now=None) -> object:
@@ -375,27 +398,6 @@ def schedule_next(job: dict, now=None) -> object:
     if nxt <= now:
         nxt = nxt + datetime.timedelta(days=1)
     return nxt
-
-
-def schedule_status(jobs: list = None) -> list:
-    """任务列表摘要（含下次触发时间，供 /api/schedule 展示；id 缺省按序号补 sched-N）。"""
-    jobs = jobs if jobs is not None else load_schedules()
-    now = datetime.datetime.now()
-    out = []
-    for i, j in enumerate(jobs):
-        nxt = schedule_next(j, now)
-        out.append({
-            "id": j.get("id") or ("sched-%d" % (i + 1)),
-            "task": j.get("task") or "",
-            "mode": j.get("mode") or "daily",
-            "time": j.get("time") or "",
-            "weekday": j.get("weekday"),
-            "intervalMin": j.get("intervalMin"),
-            "enabled": bool(j.get("enabled", True)),
-            "lastRun": j.get("lastRun") or "",
-            "nextRun": nxt.strftime("%Y-%m-%d %H:%M") if nxt else "",
-        })
-    return out
 
 
 def schedule_status(jobs: list = None) -> list:

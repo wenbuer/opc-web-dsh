@@ -3,6 +3,7 @@
    python -m opc_web roles list|generate|add  角色管理子命令。"""
 import sys
 import threading
+import webbrowser
 
 from . import bootstrap, config, roles, scheduler, server
 
@@ -41,8 +42,10 @@ def main():
         print('  · ' + line)
     threading.Thread(target=scheduler.auto_pilot, daemon=True).start()
     srv = server.create_server()
-    print('OPC 控制台（opc-web）已启动 → http://%s:%d' % (config.HOST, config.PORT))
-    print('  根目录: %s（自动 批阅台/工作区/知识库）· 调度: 队列有任务即生成【调度指令】待常驻主会话 R1（subagent 派发）' % config.ROOT)
+    url = 'http://%s:%d' % (config.HOST, config.PORT)
+    print('OPC 控制台（opc-web）已启动 → ' + url)
+    print('  根目录: %s（自动 批阅台/工作区/知识库）· 调度: 台账有待派任务即生成【调度指令】待常驻主会话 R1（subagent 派发）' % config.ROOT)
+    webbrowser.open(url)      # 在这里开浏览器，端口才跟得上配置（启动脚本写死过 8901）
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

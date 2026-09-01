@@ -7,3 +7,4 @@
 *.yml text eol=lf
 *.json text eol=lf
 *.bat text eol=crlf
+*.db binary
