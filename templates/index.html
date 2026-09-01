@@ -103,7 +103,7 @@
 
     <!-- ===== 知识库 ===== -->
     <section id="view-kb" class="view">
-      <div class="kb-topbar">📚 知识库 <em>管理员：老板助理（枢纽）R1 · 全体角色共同维护 —— 各角色产出先落《工作区/<角色名称>/回报-待落库.md》，经 R1 审核归档进入《知识库/》，档案只读</em></div>
+      <div class="kb-topbar">📚 知识库 <em>管理员：老板助理（枢纽）R1 · 全体角色共同维护 —— 各角色产出先落《工作区/<角色名称>/<子任务编号>.md》，经 R1 归档入台账后进入《知识库/》，档案只读</em></div>
       <div id="kbGrid" class="kb-grid"></div>
       <div id="kbDoc" class="kb-doc" style="display:none"></div>
     </section>
@@ -138,15 +138,19 @@
             <div id="dqQueue" class="dq-table"><div class="placeholder">排队中 —— 在上方下达第一个任务</div></div>
           </div>
           <div class="wb-col">
-            <div class="wb-col-head">📡 agent 执行监听 <em>直跑观测 / 主会话实时，一个开关开始/暂停；一键下达后自动开始，实时滚动拆解与各角色执行</em></div>
-            <div class="src-switch"><select id="srcSel" class="src-sel"><option value="run">直跑观测</option><option value="main">主会话实时</option></select><button id="btnListenToggle" class="btn-gold small">▶ 开始监听</button><span id="runState" class="dq-state">未监听</span></div>
-            <div class="run-form"><input id="runInput" placeholder="直跑观测任务，如：R3 以内容工厂身份写一段产品介绍文案（留空 = 只监听服务器上正在执行的链）"></div>
-            <div id="runLog" class="run-log"><div class="placeholder">未监听 —— 点「▶ 开始监听」；一键下达后自动开始：实时滚动 R1 拆解 → 各角色执行 → 回报事件</div></div>
+            <div class="wb-col-head">🗂 子任务看板 <em>左侧选中任务 = 只看该任务；未选 = 全部 · 点卡片看详情</em></div>
+            <div class="board-bar">
+              <input id="boardSearch" class="board-search" placeholder="搜索编号 / 子任务 / 角色…" />
+              <span id="boardStat" class="board-stat">—</span>
+            </div>
+            <div id="board" class="board"><div class="placeholder">暂无子任务 —— 下达任务后 R1 拆解即出现</div></div>
           </div>
           <div class="wb-col">
-            <div class="wb-col-head">任务详情 <em>派发单 · 执行角色 · 回报 · 产物 · 调度日志</em></div>
-            <div id="actPanel" class="act-panel"><div class="placeholder">← 点击任务行（T-xxx）后，这里显示 R1 的派发单与执行角色</div></div>
-            <div id="taskOut" class="task-out"><div class="placeholder">← 点击任务行后，这里聚合显示该任务的回报、派发、产物与调度日志</div></div>
+            <div class="wb-col-head">任务详情 <em>执行历史 · 回报 · 产物 · 调度日志</em></div>
+            <div id="actPanel" class="act-panel"><div class="placeholder">← 点任务行或看板卡片，这里显示执行角色</div></div>
+            <div id="taskOut" class="task-out"><div class="placeholder">← 点任务行或看板卡片，这里聚合执行历史、回报、产物与调度日志</div></div>
+            <div class="live-head">⚡ 实时事件<em>自动执行链</em></div>
+            <div id="runLog" class="run-log"><div class="placeholder">空闲 —— 下达任务后自动滚动 R1 拆解与派发事件</div></div>
           </div>
         </div>
       </div>

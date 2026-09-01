@@ -357,9 +357,6 @@ main{flex:1;overflow:hidden}
 .kb-doc{padding:14px 20px 24px;overflow-y:auto;flex:1;min-height:0}
 .kb-doc .markdown-body{background:rgba(0,0,0,.22);border:1px solid var(--line2);border-radius:10px;padding:16px 18px}/* ===== 执行监控（agent 遥测） ===== */
 .run-mon{margin:18px 20px 24px}
-.run-form{display:flex;gap:8px;margin:8px 0 12px}
-.run-form input{flex:1;background:rgba(10,14,21,.8);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:9px 12px;font:inherit;font-size:12.5px}
-.run-form input:focus{outline:none;border-color:var(--line2)}
 .run-log{background:rgba(0,0,0,.25);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;max-height:440px;overflow-y:auto;font-size:12px;line-height:1.6;display:flex;flex-direction:column;gap:8px}
 .run-banner{color:var(--gold);font-weight:600;font-size:12.5px}
 .run-banner.end{color:var(--ok)}
@@ -382,8 +379,6 @@ main{flex:1;overflow:hidden}
 .run-step.muted{color:var(--faint);opacity:.7}
 .run-agent{color:var(--indigo2, #8ab4f8);font-family:var(--mono);font-size:10px;letter-spacing:.5px;background:rgba(76,110,245,.12);border-radius:4px;padding:1px 6px;align-self:flex-start}
 .rt-reason{color:var(--dim);font-style:italic;opacity:.85}
-.src-switch{display:inline-flex;gap:6px;align-items:center}
-.src-switch .src-on{box-shadow:0 0 0 1px var(--gold) inset;color:var(--gold)}
 
 .rno-file:hover{border-color:var(--gold);background:rgba(232,183,61,.12)}
 .rno-file span{color:var(--ink);font-size:11.5px}
@@ -427,10 +422,6 @@ main{flex:1;overflow:hidden}
 .wb-col{display:flex;flex-direction:column;min-width:0}
 .wb-left .dq-table{max-height:280px;overflow-y:auto}
 .wb-col .run-log{max-height:300px}
-.src-switch{margin:2px 0 8px}
-.src-sel{background:var(--panel2);color:var(--txt);border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12px;cursor:pointer}
-.src-sel:focus{outline:none;border-color:var(--gold)}
-.src-sel option{background:var(--panel2);color:var(--txt)}
 .dq-state.on{color:var(--ok);border-color:var(--ok)}
 .dq-state.paused{color:var(--gold);border-color:var(--gold)}
 
@@ -743,3 +734,68 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .sched-actions{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
 /* 修正 mapi-actions 类名（HTML 是 mapi-actions，旧 CSS 误写 .map-actions） */
 .mapi-row.mapi-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+
+
+/* ============ 子任务看板（工作台中间列 · v1.16 取代原「agent 执行监听」）============
+   四列 = opc-web 现有状态语义；「部分」并入完成列打角标（单列常年空着不值一列宽度）。
+   本节样式集中在此，不再散进上面那堆 .wb-cols 历史层叠里。 */
+.board-bar{display:flex;gap:8px;align-items:center;flex:none;margin-bottom:2px}
+.board-search{flex:1;min-width:0;background:rgba(10,14,21,.8);border:1px solid var(--line);color:var(--txt);border-radius:8px;padding:6px 10px;font:inherit;font-size:11.5px}
+.board-search:focus{outline:none;border-color:var(--line2)}
+.board-search::placeholder{color:var(--faint)}
+.board-stat{flex:none;font-size:10.5px;color:var(--faint);font-family:var(--mono)}
+
+.board{flex:1 1 0;min-height:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;overflow:hidden}
+.board .placeholder{grid-column:1/-1}
+.bd-col{display:flex;flex-direction:column;min-height:0;background:rgba(0,0,0,.18);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.bd-col::before{content:"";display:block;height:2px;flex:none;background:var(--faint)}
+.bd-col.wait::before{background:var(--gold)}
+.bd-col.run::before{background:var(--indigo)}
+.bd-col.done::before{background:var(--ok)}
+.bd-col.block::before{background:var(--red-bright)}
+.bd-head{flex:none;display:flex;align-items:baseline;justify-content:space-between;gap:4px;padding:6px 8px 5px;font-size:10.5px;letter-spacing:.14em;color:var(--dim);border-bottom:1px solid var(--line)}
+.bd-head em{font-style:normal;font-family:var(--mono);font-size:10px;color:var(--faint)}
+.bd-col.wait .bd-head{color:var(--gold)}
+.bd-col.run .bd-head{color:#9db0ff}
+.bd-col.done .bd-head{color:var(--ok)}
+.bd-col.block .bd-head{color:var(--red-bright)}
+.bd-list{flex:1 1 0;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:6px;display:flex;flex-direction:column;gap:6px}
+.bd-list::-webkit-scrollbar{width:5px}
+.bd-list::-webkit-scrollbar-thumb{background:rgba(232,183,61,.3);border-radius:3px}
+.bd-empty{color:var(--faint);text-align:center;font-size:11px;padding:10px 0;border:1px dashed var(--line);border-radius:7px}
+
+.bd-card{padding:7px 8px;background:var(--panel2);border:1px solid var(--line);border-left:2px solid transparent;border-radius:7px;cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease}
+.bd-card:hover{transform:translateY(-1px);border-color:var(--line2);background:#22304f}
+.bd-card.sel{border-left-color:var(--gold);background:rgba(232,183,61,.10)}
+.bc-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px}
+.bc-no{font-family:var(--mono);font-size:10px;color:var(--gold)}
+.bc-tag{font-size:9px;padding:1px 5px;border-radius:4px;letter-spacing:.05em}
+.bc-tag.partial{color:var(--gold);border:1px solid rgba(232,183,61,.45)}
+.bc-tag.retry{color:var(--red-bright);border:1px solid rgba(231,76,60,.45)}
+.bc-sub{font-size:11px;line-height:1.45;color:var(--txt);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.bc-foot{display:flex;align-items:baseline;justify-content:space-between;gap:6px;margin-top:5px;padding-top:4px;border-top:1px dashed var(--line)}
+.bc-role{font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bc-foot em{font-style:normal;font-family:var(--mono);font-size:9px;color:var(--faint);flex:none}
+
+/* 详情：执行历史（一次派发一条；重试追加新行，不覆盖上一次） */
+.live-head{flex:none;font-size:10.5px;letter-spacing:.14em;color:var(--gold);margin:8px 0 4px;display:flex;gap:8px;align-items:baseline}
+.live-head em{font-style:normal;color:var(--faint);font-size:9.5px;letter-spacing:.04em}
+.exec-list{display:flex;flex-direction:column;gap:5px;margin-top:6px}
+.exec-row{display:grid;grid-template-columns:auto auto 1fr auto;gap:6px;align-items:baseline;padding:5px 8px;background:rgba(255,255,255,.02);border:1px solid var(--line);border-left:2px solid var(--faint);border-radius:6px;font-size:10.5px}
+.exec-row.run{border-left-color:var(--indigo)}
+.exec-row.ok{border-left-color:var(--ok)}
+.exec-row.warn{border-left-color:var(--gold)}
+.exec-row.bad{border-left-color:var(--red-bright)}
+.ex-id{font-family:var(--mono);color:var(--gold);font-size:10px}
+.ex-role{color:var(--dim)}
+.ex-time{font-family:var(--mono);color:var(--faint);font-size:9.5px}
+.ex-st{font-style:normal;font-size:10px}
+.exec-row.ok .ex-st{color:var(--ok)}
+.exec-row.warn .ex-st{color:var(--gold)}
+.exec-row.bad .ex-st{color:var(--red-bright)}
+.exec-row.run .ex-st{color:#9db0ff}
+.ex-err{grid-column:1/-1;color:var(--red-bright);font-size:10px;margin-top:3px;word-break:break-all}
+
+/* 右列：详情可滚，实时事件收在底部（覆盖上面 .wb-cols .run-log 的 320px） */
+.wb-cols .wb-col .run-log{flex:none !important;max-height:190px !important}

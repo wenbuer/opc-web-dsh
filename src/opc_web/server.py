@@ -5,7 +5,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote
 
-from . import bootstrap, config, knowledge, parsers, queue, review, roles, runner, scheduler
+from . import bootstrap, config, knowledge, parsers, review, roles, runner, scheduler, store
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -85,7 +85,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/queue":
             try:
-                self._json({"ok": True, "queue": queue.parse_queue()})
+                self._json({"ok": True, "queue": store.tasks()})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/r1-output":
@@ -102,7 +102,7 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/plan-rows":
             try:
-                self._json({"ok": True, "rows": parsers.parse_plan_rows()})
+                self._json({"ok": True, "rows": store.subtasks()})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/task-output":
@@ -135,16 +135,10 @@ class Handler(BaseHTTPRequestHandler):
             qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             path = unquote(qs.get("path", [""])[0])
             self._json(config.list_dirs(path))
-        elif url == "/api/run/state":
-            self._json({"ok": True, **runner.state()})
         elif url == "/api/run/events":
             qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
             since = int(qs.get("since", ["0"])[0] or 0)
             self._json(runner.events(since))
-        elif url == "/api/telemetry/main":
-            qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
-            off = int(qs.get("since_off", ["0"])[0] or 0)
-            self._json({"ok": True, **runner.main_telemetry(off)})
         else:
             self._json({"ok": False, "msg": "未知接口"}, 404)
 
@@ -161,18 +155,17 @@ class Handler(BaseHTTPRequestHandler):
             if not no:
                 self._json({"ok": False, "msg": "缺少任务编号 no"}, 400)
                 return
-            before = queue.parse_queue()
-            hit = [t for t in before if t["no"] == no]
+            hit = [t for t in store.tasks() if t["no"] == no]
             if not hit:
                 self._json({"ok": False, "msg": "任务 " + no + " 不在队列中"}, 404)
                 return
             retried = False
             if hit[0]["status"] == "阻塞":
-                queue.retry_task(no)
+                store.set_task(no, "待派")
                 retried = True
                 scheduler.scan_once()  # 立即扫描：置待派后马上重启执行链（busy 时自然排队）
             self._json({"ok": True, "no": no, "retried": retried,
-                        "queue": queue.parse_queue(),
+                        "queue": store.tasks(),
                         "msg": ("重试 " + no + "：已重置为待派并触发扫描") if retried
                                else (no + " 状态为「" + hit[0]["status"] + "」，无需重试")})
             return
@@ -188,9 +181,9 @@ class Handler(BaseHTTPRequestHandler):
             if not text:
                 self._json({"ok": False, "msg": "任务内容不能为空"}, 400)
                 return
-            no = queue.dispatch_task(text, expect)
+            no = store.add_task(text, expect)
             scheduler.scan_once()  # 立即生成 R1 拆解指令，不等 8s 轮询
-            self._json({"ok": True, "no": no, "queue": queue.parse_queue(), "state": scheduler.SCHED_STATE})
+            self._json({"ok": True, "no": no, "queue": store.tasks(), "state": scheduler.SCHED_STATE})
             return
         if url == "/api/run-r1":
             threading.Thread(target=scheduler.run_r1_job, daemon=True).start()
@@ -210,12 +203,6 @@ class Handler(BaseHTTPRequestHandler):
                 return
             threading.Thread(target=scheduler.run_child_job, args=(no, task), daemon=True).start()
             self._json({"ok": True, "msg": "子任务派发指令已生成（待常驻主会话用 subagent 派发）", "state": scheduler.SCHED_STATE})
-            return
-        if url == "/api/r1-apply":
-            try:
-                self._json({"ok": True, "result": scheduler.r1_apply()})
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 500)
             return
         if url == "/api/r1-archive":
             try:
@@ -283,17 +270,41 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if url == "/api/settings":
+            # 一个端点服务两种保存：模型接入（body.model）与 根目录/端口（SETTING_KEYS）。
+            # 原来写成两个同名分支，第二个永远走不到 —— 保存根目录会落进只处理 model 的
+            # 那个分支：根目录从未写盘（界面却显示成功），还顺手把 model 段重置成默认 provider。
             try:
                 length = int(self.headers.get("Content-Length", 0))
                 body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
-                mbody = body.get("model") or {}
-                res = config.save_model(mbody, dry=bool(body.get("dry", False)))
-                mi = config.model_info()
-                res["configured"] = mi["configured"]
-                res["keyMasked"] = mi["keyMasked"]
-                self._json({"ok": True, "model": res})
+                dry = bool(body.get("dry", False))
+                kv = {k: body.get(k) for k in config.SETTING_KEYS if k in body}
+                if kv.get("port") not in (None, ""):
+                    try:
+                        kv["port"] = int(str(kv["port"]).strip())
+                    except Exception:
+                        kv.pop("port", None)
+                out = {"ok": True}
+                if kv and not dry:
+                    config.save_cfg(kv)
+                    config.reload()
+                    bootstrap.bootstrap()      # 新根目录下的三目录幂等重建
+                    out.update(config.settings_info())
+                    out["boot"] = bootstrap.BOOT_LOG
+                mbody = body.get("model")
+                if isinstance(mbody, dict):
+                    res = config.save_model(mbody, dry=dry)
+                    mi = config.model_info()
+                    res["configured"] = mi["configured"]
+                    res["keyMasked"] = mi["keyMasked"]
+                    out["model"] = res         # 放在 settings_info 之后，否则被其 model 字段盖掉
+                out["msg"] = "；".join(x for x in (
+                    "模型 API 配置已保存" if isinstance(mbody, dict) else "",
+                    "opc-config.json 已更新并生效" if kv else "",
+                    "端口修改需重启控制台" if "port" in kv else "",
+                ) if x) or "无改动"
+                self._json(out)
             except Exception as e:
-                self._json({"ok": False, "msg": "保存模型配置失败: " + str(e)[:200]}, 500)
+                self._json({"ok": False, "msg": "保存设置失败: " + str(e)[:200]}, 500)
             return
         if url == "/api/model/test":
             try:
@@ -309,57 +320,6 @@ class Handler(BaseHTTPRequestHandler):
                 body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
                 r = roles.remove_role(str(body.get("no", "")).strip())
                 self._json({"ok": True, "result": r})
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 500)
-            return
-        if url == "/api/run/start":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
-                run_id = runner.start(str(body.get("task", "")).strip())
-                self._json({"ok": True, "runId": run_id, **runner.state()})
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 400)
-            return
-        if url == "/api/run/stop":
-            try:
-                msg = runner.stop()
-                self._json({"ok": True, "msg": msg, **runner.state()})
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 500)
-            return
-        if url == "/api/settings":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
-                model = body.get("model")
-                if isinstance(model, dict):
-                    config.save_model(model)
-                kv = {k: body.get(k) for k in config.SETTING_KEYS if k in body}
-                if kv.get("port") not in (None, ""):
-                    try:
-                        kv["port"] = int(str(kv["port"]).strip())
-                    except Exception:
-                        kv.pop("port", None)
-                config.save_cfg(kv)
-                config.reload()
-                bootstrap.bootstrap()          # 新知识库根/工作区目录幂等重建
-                info = config.settings_info()
-                info["boot"] = bootstrap.BOOT_LOG
-                info["msg"] = ("模型 API 配置已保存；" if isinstance(body.get("model"), dict) else "") +                               ("opc-config.json 已更新并生效；端口修改需重启控制台" if "port" in kv else "opc-config.json 已更新并生效")
-                self._json(info)
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 500)
-            return
-        if url == "/api/model/test":
-            try:
-                length = int(self.headers.get("Content-Length", 0))
-                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
-                r = config.test_model(body)
-                if r.get("ok"):
-                    self._json({"ok": True, **r})
-                else:
-                    self._json({"ok": False, "msg": r.get("msg", "连通失败"), **r})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
             return

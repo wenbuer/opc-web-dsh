@@ -2,7 +2,8 @@
   "use strict";
   var $ = function(id){ return document.getElementById(id); };
   var NL10 = String.fromCharCode(10);
-  var state = { pending: [], archive: [], cur: null, daily: [], activeNo: null, rolesMap: {}, lastDirPath: "" };
+  var state = { pending: [], archive: [], cur: null, daily: [], activeNo: null, activeSub: null,
+                boardRows: [], runSeq: 0, runTimer: null, rolesMap: {}, lastDirPath: "" };
 
   function esc(s){
     s = String(s == null ? "" : s);
@@ -52,10 +53,14 @@
   }
   function loadWorkbench(){
     state.activeNo = null;
+    state.activeSub = null;
     loadQueue();
+    loadBoard();
     refreshSched(0);
     renderAct(null);
-    runBind();
+    liveStart();
+    var bs = $("boardSearch");
+    if (bs && !bs.dataset.bound){ bs.dataset.bound = "1"; bs.addEventListener("input", renderBoard); }
   }
   /* ---- 当前任务与执行角色：默认空 —— 点击左列任务后才筛选该任务的派发行 ---- */
   function renderAct(activeNo){
@@ -184,21 +189,6 @@
     });
   }
 
-  function renderTasks(tasks){
-    var box = $("taskTable");
-    box.innerHTML = "";
-    if (!tasks || !tasks.length){ box.innerHTML = "<div class='t-row'><span class='task'>当前无任务</span></div>"; return; }
-    (tasks || []).forEach(function(t){
-      var row = document.createElement("div");
-      row.className = "t-row";
-      var ttCls = (t.type === "待批" ? "wait" : "disp");
-      row.innerHTML = "<span class='tt " + ttCls + "'>" + esc(t.type) + "</span>"
-        + "<span class='role'>" + esc(t.role) + "</span>"
-        + "<span class='task'>" + esc(t.task) + (t.ref ? " <em>(" + esc(t.ref) + ")</em>" : "") + "</span>"
-        + "<span class='st'>" + esc(t.status || "") + "</span>";
-      box.appendChild(row);
-    });
-  }
 
   /* ================= 任务下达与 R1 调度 ================= */
   function post(url, data){
@@ -229,7 +219,8 @@
             if (!j || !j.ok){ btR.disabled = false; btR.textContent = "↻ 重试"; alert((j && j.msg) || "重试失败"); return; }
             btR.textContent = "✓ 已重置";
             loadQueue();
-            autoListenChain();
+            loadBoard();
+            liveStart();
             var st = $("dqState");
             if (st && j.msg) st.textContent = j.msg;
           }).catch(function(){ btR.disabled = false; btR.textContent = "↻ 重试"; });
@@ -241,9 +232,11 @@
     }).catch(function(){});
   }
   /* ===== 任务输出聚合：点击任务行查看回报/派发/产物 ===== */
+  function fmtTs(ts){ return ts ? String(ts).replace("T", " ").slice(5, 16) : ""; }
   function showTaskOutput(no, row){
     state.activeNo = no;
     renderAct(no);
+    renderBoard();                    // 看板跟随选中任务筛选
     document.querySelectorAll(".dq-row").forEach(function(r){ r.classList.remove("sel"); });
     if (row) row.classList.add("sel");
     var box = $("taskOut");
@@ -251,8 +244,30 @@
     api("/api/task-output?no=" + encodeURIComponent(no)).then(function(j){
       if (!j || !j.ok){ box.innerHTML = "<div class='placeholder'>读取失败：" + esc(j && j.msg || "未知") + "</div>"; return; }
       var html = "<div class='to-head'>任务 " + esc(j.no) + " · 输出聚合</div>";
-      html += "<div class='to-sec'><b>回报队列</b>" + (j.reports && j.reports.length ? "<div class='to-rows'>" + renderMd("| 日期 | 任务 | 角色 | 回报摘要 | 状态 |\n|---|---|---|---|---|\n" + j.reports.map(function(x){ return x.replace(/\n/g, " "); }).join("\n").replace(/\|\s*$/, "")) + "</div>" : "<span class='empty'>暂无回报记录</span>") + "</div>";
-      html += "<div class='to-sec'><b>派发单</b>" + (j.plan && j.plan.length ? "<div class='to-rows'>" + renderMd("| 编号 | 子任务 | 角色 | 期望产出 | 状态 |\n|---|---|---|---|---|\n" + j.plan.map(function(x){ return x.replace(/\n/g, " "); }).join("\n").replace(/\|\s*$/, "")) + "</div>" : "<span class='empty'>暂无派发单记录</span>") + "</div>";
+      /* 台账来自 SQLite（/api/task-output），这里只把结构化行拼成 md 表格用于渲染 */
+      function mdRow(cells){ return "| " + cells.map(function(c){ return String(c == null ? "" : c).replace(/\|/g, "／").replace(/\n/g, " "); }).join(" | ") + " |"; }
+      function mdTable(head, rows){ return renderMd(mdRow(head) + "\n|" + head.map(function(){ return "---"; }).join("|") + "|\n" + rows.join("\n")); }
+      html += "<div class='to-sec'><b>执行历史</b>" + (j.executions && j.executions.length
+        ? "<div class='exec-list'>" + j.executions.map(function(e){
+            var done = !!e.result;
+            var cls = !done ? "run" : (e.result === "完成" ? "ok" : (e.result === "部分" ? "warn" : "bad"));
+            return "<div class='exec-row " + cls + "'>"
+              + "<span class='ex-id'>" + esc(e.id) + "</span>"
+              + "<span class='ex-role'>" + esc(e.role) + "</span>"
+              + "<span class='ex-time'>" + esc(fmtTs(e.started_at)) + (e.ended_at ? " → " + esc(fmtTs(e.ended_at)) : " → 进行中") + "</span>"
+              + "<em class='ex-st'>" + esc(e.result || "执行中") + "</em>"
+              + (e.error ? "<div class='ex-err'>" + esc(e.error) + "</div>" : "")
+              + "</div>";
+          }).join("") + "</div>"
+        : "<span class='empty'>尚无执行记录 —— 派发后产生，重试会追加新记录而非覆盖</span>") + "</div>";
+      html += "<div class='to-sec'><b>回报</b>" + (j.reports && j.reports.length
+        ? "<div class='to-rows'>" + mdTable(["日期", "子任务", "角色", "标题", "状态"], j.reports.map(function(x){
+            return mdRow([x.date, x.sub_no, x.role, x.title, x.status]); })) + "</div>"
+        : "<span class='empty'>暂无回报记录</span>") + "</div>";
+      html += "<div class='to-sec'><b>子任务</b>" + (j.plan && j.plan.length
+        ? "<div class='to-rows'>" + mdTable(["编号", "子任务", "角色", "期望产出", "状态"], j.plan.map(function(x){
+            return mdRow([x.no, x.sub, x.role, x.expect, x.st]); })) + "</div>"
+        : "<span class='empty'>暂无子任务记录</span>") + "</div>";
       html += "<div class='to-sec'><b>角色产物（点击可查看全文）</b>";
       if (j.files && j.files.length){
         j.files.forEach(function(f){
@@ -279,32 +294,6 @@
     }).catch(function(e){ box.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
   }
   /* ===== R1 派发（合并原「运行调度 + 落地产出」两步为链式） ===== */
-  function chainR1(){
-    var st = $("dqState");
-    st.textContent = "R1 派发：启动后台调度…";
-    post("/api/run-r1").then(function(j){
-      if (!j || !j.ok){ st.textContent = "调度启动失败：" + (j && j.msg || "未知"); return; }
-      st.textContent = "调度已启动，等待完成后自动落地…";
-      var n = 0;
-      var timer = setInterval(function(){
-        n++;
-        api("/api/scheduler").then(function(s){
-          if (s && s.ok && !(s.state || {}).busy){
-            clearInterval(timer);
-            applyR1Step();
-          } else if (n >= 60){ clearInterval(timer); st.textContent = "R1 调度超时（5 分钟）——请稍后再试"; }
-        }).catch(function(){});
-      }, 5000);
-    }).catch(function(e){ st.textContent = "异常：" + e.message; });
-  }
-  function applyR1Step(){
-    var st = $("dqState");
-    st.textContent = "调度完成，落地派发单产出…";
-    post("/api/r1-apply").then(function(j){
-      if (j && j.ok){ var a = (j.result && j.result.applied || []).join("；"); st.textContent = "派发完成：" + a; loadQueue() }
-      else { st.textContent = "落地失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ st.textContent = "异常：" + e.message; });
-  }
   /* ===== 调度暂停/继续（单按钮 toggle；恢复时自动续跑剩余派发） ===== */
   function toggleSched(){
     var st = $("dqState");
@@ -337,12 +326,6 @@
       if (show){ loadQueue() }
     }).catch(function(){});
   }
-  function togglePause(){
-    post("/api/plan-pause", { action: "toggle" }).then(function(j){
-      if (j && j.ok){ refreshSched(0); }
-      else { $("dqState").textContent = "暂停切换失败：" + (j && j.msg || "未知"); }
-    }).catch(function(){});
-  }
 
   /* ===== 一键下达：R1 自动拆解派发（单按钮 + 全自动轮询反馈） ===== */
   function oneClickDispatch(){
@@ -356,8 +339,9 @@
       $("dqInput").value = "";
       if (stj) stj.innerHTML = "已下达 <b>" + esc(j.no) + "</b> —— 全自动流水线：R1 拆解 → subagent 派发各角色 → 回报落库";
       loadQueue();
+      loadBoard();
       pollAuto(j.no);
-      autoListenChain();
+      liveStart();
     }).catch(function(e){ if (stj) stj.textContent = "下达异常：" + e.message; });
   }
   function pollAuto(no){
@@ -389,41 +373,24 @@
       }).catch(function(){});
     }, 2500);
   }
-  function dispatchNow(){
-    var v = $("dqInput").value.trim();
-    if (!v){ $("dqState").textContent = "请先填写任务内容"; return; }
-    var ex = ($("dqExpect") && $("dqExpect").value.trim()) || "R1 判断";
-    $("dqState").textContent = "下达中…";
-    post("/api/dispatch", { task: v, expect: ex }).then(function(j){
-      if (j && j.ok){ $("dqInput").value = ""; $("dqState").textContent = "已下达 " + j.no + " → 队列（点「运行 R1 调度」派发）"; loadQueue(); }
-      else { $("dqState").textContent = "下达失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ $("dqState").textContent = "下达异常：" + e.message; });
-  }
-  function runR1(){
-    $("dqState").textContent = "正在启动 R1 后台调度…";
-    post("/api/run-r1").then(function(j){
-      if (j && j.ok){ $("dqState").textContent = j.msg || "R1 调度已启动"; setTimeout(function(){ refreshSched(0); }, 2000); }
-      else { $("dqState").textContent = "启动失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ $("dqState").textContent = "异常：" + e.message; });
-  }
-  function applyR1(){
-    $("dqState").textContent = "落地中…";
-    post("/api/r1-apply").then(function(j){
-      if (j && j.ok){ var a = (j.result && j.result.applied || []).join("；"); $("dqState").textContent = "落地完成：" + a; loadQueue() }
-      else { $("dqState").textContent = "落地失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ $("dqState").textContent = "异常：" + e.message; });
-  }
   function archiveR1(){
     $("dqState").textContent = "归档中…";
     post("/api/r1-archive").then(function(j){
-      if (j && j.ok){ var a = (j.result && j.result.archived || []).join("；"); $("dqState").textContent = "归档完成：" + a; loadQueue() }
+      if (j && j.ok){
+        var r = j.result || {};
+        var parts = [];
+        if ((r.archived || []).length) parts.push("入库 " + r.archived.length + " 项：" + r.archived.join("；"));
+        if ((r.skipped || []).length) parts.push("跳过 " + r.skipped.length + " 项（未完成）");
+        if ((r.ledger || []).length) parts.push("待指定归档 " + r.ledger.length + " 项");
+        $("dqState").textContent = "归档完成：" + (parts.join(" · ") || "无可归档产出"); loadQueue();
+      }
       else { $("dqState").textContent = "归档失败：" + (j && j.msg || "未知"); }
     }).catch(function(e){ $("dqState").textContent = "归档异常：" + e.message; });
   }
   function planExec(){
     $("dqState").textContent = "按派发单启动子任务…";
     post("/api/plan-execute").then(function(j){
-      if (j && j.ok){ $("dqState").textContent = "已启动：" + (j.result.started || []).join(", ") + "（后台逐个执行，约每项 1-3 分钟）"; }
+      if (j && j.ok){ $("dqState").textContent = "派发指令已生成：" + ((j.result || {}).issued || []).join(", "); }
       else { $("dqState").textContent = "启动失败：" + (j && j.msg || "未知"); }
     }).catch(function(e){ $("dqState").textContent = "异常：" + e.message; });
   }
@@ -594,149 +561,105 @@
   }
 
   /* ================= 执行监控（agent 遥测：完整 prompt + 流式输出 + 工具调用） ================= */
-  function runBind(){
-    if (state.runBound) return;
-    state.runBound = true;
-    state.runSeq = 0;
-    state.mainOff = 0;
-    state.src = "run";
-    state.listenOn = false;
-    runStateUi(null);
-    var bt = $("btnListenToggle");
-    if (bt) bt.addEventListener("click", listenToggle);
-    var ss = $("srcSel");
-    if (ss) ss.addEventListener("change", function(){ setRunSrc(ss.value); });
+  /* ================= 实时事件流（自动执行链阶段事件 → 详情面板底部） ================= */
+  function liveStart(){
+    if (state.runTimer) return;
+    state.runTimer = setInterval(runTick, 1400);
+    runTick();
   }
-  function listenToggle(){
-    if (state.listenOn){ listenStop(); return; }
-    listenStart();
-  }
-  function listenStart(){
-    state.listenOn = true;
-    var bt = $("btnListenToggle");
-    if (bt) bt.textContent = "⏸ 暂停监听";
-    var st = $("runState");
-    if (st){ st.className = "dq-state on"; }
-    if (state.src === "main"){
-      if (st) st.textContent = "监听中";
-      state.mainOff = 0;
-      state.mainTimer = setInterval(mainTick, 1200);
-      mainTick();
-      return;
-    }
-    var inp = $("runInput");
-    var task = inp ? inp.value.trim() : "";
-    if (task){
-      runStart();   // 直跑观测开跑（内部已启动事件轮询）
-    } else {
-      if (st) st.textContent = "观测中（自动跟随执行链，无手动任务）";
-      var lg0 = $("runLog");
-      if (lg0 && lg0.querySelector(".placeholder")) lg0.innerHTML = "";
-      if (state.runTimer) clearInterval(state.runTimer);
-      state.runSeq = 0;
-      state.runTimer = setInterval(runTick, 1400);
-      runTick();
-    }
-  }
-  function autoListenChain(){
-    // 一键下达 → 自动切到「直跑观测」源并开监听：实时滚动自动执行链（R1 拆解 → 各角色执行 → 回报）事件
-    var ss = $("srcSel");
-    if (ss && ss.value !== "run"){ setRunSrc("run"); return autoListenChain(); }
-    if (!state.listenOn){ listenStart(); }
-    var lg = $("runLog");
-    if (lg && lg.querySelector(".placeholder")) lg.innerHTML = "";
+  function liveStop(){
+    if (state.runTimer){ clearInterval(state.runTimer); state.runTimer = null; }
   }
 
-  function listenStop(){
-    state.listenOn = false;
-    var bt = $("btnListenToggle");
-    if (bt) bt.textContent = "▶ 开始监听";
-    var st = $("runState");
-    if (st){ st.textContent = "已暂停"; st.className = "dq-state"; }
-    if (state.runTimer){ clearInterval(state.runTimer); state.runTimer = null; }
-    if (state.mainTimer){ clearInterval(state.mainTimer); state.mainTimer = null; }
-    if (state.src === "run" && state.runId){
-      api("/api/run/stop", { method: "POST" }).then(function(){}).catch(function(){});
-    }
+  /* ================= 子任务看板 =================
+     列 = opc-web 现有状态语义；「部分」并入完成列并打角标（单独一列常年空着）。 */
+  var BOARD_COLS = [
+    { key: "待派", cls: "wait" },
+    { key: "已派", cls: "run" },
+    { key: "完成", cls: "done" },
+    { key: "阻塞", cls: "block" }
+  ];
+  function boardColOf(st){
+    var s = String(st || "待派");
+    if (s.indexOf("阻塞") >= 0) return "阻塞";
+    if (s.indexOf("完成") >= 0 || s.indexOf("部分") >= 0) return "完成";
+    if (s.indexOf("已派") >= 0 || s.indexOf("执行") >= 0) return "已派";
+    return "待派";
   }
-  function setRunSrc(which){
-    var prev = state.src;
-    state.src = which;
-    if (state.runTimer){ clearInterval(state.runTimer); state.runTimer = null; }
-    if (state.mainTimer){ clearInterval(state.mainTimer); state.mainTimer = null; }
-    var ss = $("srcSel");
-    if (ss && ss.value !== which) ss.value = which;
-    var f = document.querySelector(".run-form");
-    if (f) f.style.display = (which === "run" ? "" : "none");
-    var lg = $("runLog");
-    if (lg) lg.innerHTML = "<div class='placeholder'>" + (which === "main" ? "主会话实时 —— 监听 DSH 主会话（R1/subagent）执行事件；重启 DSH 主会话后遥测生效，会话期间事件实时落盘" : "直跑观测 —— 输入任务点「▶ 开始监听」开跑，实时流式显示：发给 agent 的完整 prompt、大模型逐字输出、它调用的工具与结果") + "</div>";
-    var st = $("runState");
-    if (st){ st.textContent = "未监听"; st.className = "dq-state"; }
-    if (state.listenOn && which !== prev){ listenStart(); }
-  }
-  function mainTick(){
-    api("/api/telemetry/main?since_off=" + state.mainOff).then(function(j){
+  function loadBoard(){
+    api("/api/plan-rows").then(function(j){
       if (!j || !j.ok) return;
-      var evs = j.events || [];
-      if (evs.length){
-        state.mainOff = j.nextOffset || state.mainOff;
-        var lg = $("runLog");
-        if (lg && document.querySelector(".placeholder")) lg.innerHTML = "";
-        evs.forEach(function(ev){ runRender(ev); });
+      state.boardRows = j.rows || [];
+      renderBoard();
+    }).catch(function(){});
+  }
+  function renderBoard(){
+    var box = $("board");
+    if (!box) return;
+    var rows = state.boardRows || [];
+    if (state.activeNo) rows = rows.filter(function(x){ return x.taskNo === state.activeNo; });
+    var q = (($("boardSearch") || {}).value || "").trim().toLowerCase();
+    if (q) rows = rows.filter(function(x){
+      return (x.no + " " + x.sub + " " + x.role + " " + roleName(x.role)).toLowerCase().indexOf(q) >= 0;
+    });
+    var stat = $("boardStat");
+    if (stat) stat.textContent = rows.length + " 个子任务"
+      + (state.activeNo ? " · " + state.activeNo : "") + (q ? " · 已筛选" : "");
+    if (!rows.length){
+      box.innerHTML = "<div class='placeholder'>" + (q || state.activeNo ? "没有匹配的子任务" : "暂无子任务 —— 下达任务后 R1 拆解即出现") + "</div>";
+      return;
+    }
+    var buckets = {};
+    BOARD_COLS.forEach(function(c){ buckets[c.key] = []; });
+    rows.forEach(function(x){ buckets[boardColOf(x.st)].push(x); });
+    box.innerHTML = "";
+    BOARD_COLS.forEach(function(c){
+      var col = document.createElement("div");
+      col.className = "bd-col " + c.cls;
+      var head = document.createElement("div");
+      head.className = "bd-head";
+      head.innerHTML = "<span>" + esc(c.key) + "</span><em>" + buckets[c.key].length + "</em>";
+      col.appendChild(head);
+      var list = document.createElement("div");
+      list.className = "bd-list";
+      buckets[c.key].forEach(function(x){ list.appendChild(boardCard(x)); });
+      if (!buckets[c.key].length){
+        var e0 = document.createElement("div");
+        e0.className = "bd-empty";
+        e0.textContent = "—";
+        list.appendChild(e0);
       }
-    }).catch(function(){});
+      col.appendChild(list);
+      box.appendChild(col);
+    });
   }
-  function runStart(){
-    var inp = $("runInput");
-    var task = inp ? inp.value.trim() : "";
-    if (!task){ if (inp){ inp.focus(); inp.style.borderColor = "var(--red-bright)"; setTimeout(function(){ inp.style.borderColor = ""; }, 900); } return; }
-    api("/api/run/start", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ task: task })
-    }).then(function(j){
-      if (!j || !j.ok){ var el = $("runState"); if (el) el.textContent = "启动失败：" + (j && j.msg || ""); return; }
-      state.runSeq = 0;
-      var lg = $("runLog");
-      if (lg) lg.innerHTML = "<div class='placeholder'>启动中…（连接 dsh headless）</div>";
-      runStateUi(j);
-      if (state.runTimer) clearInterval(state.runTimer);
-      state.runTimer = setInterval(runTick, 1400);
-      runTick();
-    }).catch(function(e){ var el = $("runState"); if (el) el.textContent = "异常：" + e.message; });
+  function boardCard(x){
+    var el = document.createElement("div");
+    el.className = "bd-card" + (state.activeSub === x.no ? " sel" : "");
+    var partial = String(x.st || "").indexOf("部分") >= 0;
+    var tries = x.tries || 0;
+    el.innerHTML = "<div class='bc-top'><span class='bc-no'>" + esc(x.no) + "</span>"
+      + (partial ? "<span class='bc-tag partial'>部分</span>" : "")
+      + (tries > 1 ? "<span class='bc-tag retry'>第 " + tries + " 次</span>" : "")
+      + "</div><div class='bc-sub'>" + esc(x.sub) + "</div>"
+      + "<div class='bc-foot'><span class='bc-role'>" + esc(x.role) + " " + esc(roleName(x.role)) + "</span>"
+      + (x.lastStarted ? "<em>" + esc(String(x.lastStarted).replace("T", " ").slice(5, 16)) + "</em>" : "")
+      + "</div>";
+    el.title = "期望产出：" + (x.expect || "—");
+    el.addEventListener("click", function(){
+      state.activeSub = x.no;
+      showTaskOutput(x.taskNo, null);
+    });
+    return el;
   }
-  function runStop(){
-    api("/api/run/stop", { method: "POST" }).then(function(j){
-      if (j && j.ok) runStateUi(j);
-      if (state.runTimer){ clearInterval(state.runTimer); state.runTimer = null; }
-    }).catch(function(){});
-  }
+
+
   function runTick(){
     api("/api/run/events?since=" + state.runSeq).then(function(j){
       if (!j || !j.ok) return;
       if (j.state) state.runSeq = j.state.seq;
-      runStateUi(j);
       (j.events || []).forEach(function(ev){ runRender(ev); });
-      if (j.state && !j.state.running){ if (state.runTimer){ clearInterval(state.runTimer); state.runTimer = null; } }
     }).catch(function(){});
-  }
-  function runStateUi(j){
-    var st = j && j.state ? j.state : {};
-    var el = $("runState");
-    var bp = $("btnRunStop");
-    if (!el) return;
-    if (st.running){
-      el.textContent = "运行中：" + (st.task || "").slice(0, 24) + "… · " + (st.runId || "");
-      el.className = "dq-state paused";
-      if (bp) bp.hidden = false;
-    } else if (st.runId){
-      el.textContent = "已结束：" + st.runId;
-      el.className = "dq-state";
-      if (bp) bp.hidden = true;
-    } else {
-      el.textContent = "未启动";
-      el.className = "dq-state";
-      if (bp) bp.hidden = true;
-    }
   }
   function runMsgText(d){
     var m = d && d.message ? d.message : null;
@@ -1224,14 +1147,6 @@
       });
     }).catch(function(e){ box.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
   }
-  function dirParent(path){
-    if (!path) return "";
-    var s = String(path).split(String.fromCharCode(92)).join("/");
-    while (s.length > 1 && s.charAt(s.length - 1) === "/") s = s.slice(0, -1);
-    var i = s.lastIndexOf("/");
-    if (i <= 0) return s.slice(0, 2) || "";
-    return s.slice(0, i);
-  }
   function saveSettings(){
     var map = { setKbRoot: "root" };
     var payload = { };
@@ -1411,7 +1326,7 @@
       if (v === "piyue") loadPiyue();
       if (v === "kb") loadKbEntries();
       if (v === "daily") loadDaily();
-      if (v === "workbench") loadWorkbench();
+      if (v === "workbench") loadWorkbench(); else liveStop();   // 离开工作台就停掉事件轮询
       if (v === "settings") loadSettings();
     });
   });
