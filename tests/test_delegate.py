@@ -28,9 +28,11 @@ class TestNoHeadless(unittest.TestCase):
 
 class TestPromptInjection(unittest.TestCase):
     def test_agent_prompt_contains_task_and_tail(self):
-        p = agent.agent_prompt("R8", "测试任务：更新 PRD 设计稿")
+        p = agent.agent_prompt("R8", "测试任务：更新 PRD 设计稿",
+                               "工作区/产品设计师/T-001-S1.md", "工作区/产品设计师/T-001-S1.meta.json")
         self.assertIn("测试任务：更新 PRD 设计稿", p)
-        self.assertIn("回报人：R8", p)
+        self.assertIn("T-001-S1.md", p)
+        self.assertIn("status 改为", p)
         self.assertIn("工作根目录", p)
 
     def test_agent_prompt_uses_role_card(self):
@@ -46,12 +48,12 @@ class TestPromptInjection(unittest.TestCase):
 
 class TestSubtaskSpec(unittest.TestCase):
     def test_spec_shape(self):
-        spec = agent.subtask_spec("R2", "挖掘 5 条新用户原声", "期望：原声库增量")
+        spec = agent.subtask_spec("R2", "挖掘 5 条新用户原声", "期望：原声库增量", sub_no="T-007-S1")
         self.assertEqual(spec["role"], "R2")
         self.assertEqual(spec["preset"], "opc-r2")
         self.assertIn("需求研究员", spec["presetName"])
-        self.assertIn("工作区/需求研究员/回报-待落库.md", spec["output"])
-        self.assertIn("回报人：R2", spec["reportEnd"])
+        self.assertEqual(spec["output"], "工作区/需求研究员/T-007-S1.md")
+        self.assertEqual(spec["meta"], "工作区/需求研究员/T-007-S1.meta.json")
         self.assertIn("挖掘 5 条新用户原声", spec["prompt"])
         self.assertEqual(spec["workspaceRoot"], str(config.ROOT).replace("\\", "/"))
 

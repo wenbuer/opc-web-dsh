@@ -34,7 +34,8 @@ CARD_TPL = """# OPC 角色卡：%(no)s %(name)s
 ## 协议与输出格式
 - 任务以文件形式接收（本卡全文 + 【任务】段）
 - 工作根目录 = 根目录（用 / 分隔路径）
-- 产出先写《%(ws)s/%(wsname)s/回报-待落库.md》，回报尾行固定：回报人：%(no)s｜任务：T-xxx｜状态：完成/部分/阻塞
+- 产出先写《%(ws)s/%(wsname)s/<子任务编号>.md》（编号由中枢派发时给定，如 T-001-S1；边做边追加进度）
+- 完成后把同名 .meta.json 的 status 改为 完成/部分/阻塞（只改这一个字段）；任务号与角色无需复述
 
 ## 当前上下文（最近更新）
 - %(today)s：控制台「设置 → 角色创建」创建本角色（编号 %(no)s）
@@ -85,13 +86,13 @@ def extract_persona(card_text, no):
     kb = str(config.ROOT).replace("\\", "/")
     name = _card_name(card_text) or no
     return ("你是 OPC（一人公司）体系的角色 %s。\n" % no
-            + "本 persona 由 opc-web 控制台自动生成（完整纪律见《opc-web/knowledge/知识库索引.md》与《opc-web/knowledge/OPC智能体角色架构.md》）。\n\n"
+            + "本 persona 由 opc-web 控制台自动生成（完整纪律见《知识库/知识库索引.md》与《知识库/OPC智能体角色架构.md》）。\n\n"
             + body
             + "\n\n【工作纪律（OPC 体系强制）】\n"
             + "- 工作根目录 = %s/（知识库唯一权威根，用 / 分隔路径）。\n" % kb
             + "- 《知识库/》档案与《批阅台/》公文只读不写（决策在 R0，产出归对应角色）。\n"
-            + "- 个人产出与回报先写《%s/%s/回报-待落库.md》（不存在则创建）。\n" % (config.WORKSPACE_REL, name)
-            + "- 回报尾部固定行：回报人：%s｜任务：T-xxx｜状态：完成/部分/阻塞。" % no)
+            + "- 个人产出写《%s/%s/<子任务编号>.md》（编号由中枢派发时给定，如 T-001-S1；边做边追加进度，可写多次）。\n" % (config.WORKSPACE_REL, name)
+            + "- 完成后把同名 .meta.json 的 status 改为 完成/部分/阻塞（只改这一个字段；任务号与角色无需复述）。")
 
 
 def preset_files(no, name, persona):
@@ -131,6 +132,26 @@ def generate_all(force=False):
     return {"roles": [no for no, _ in role_files()], "files": done, "count": len(done)}
 
 
+def role_digest(exclude=("R0", "R1")):
+    """角色摘要 [(编号, 名称, 一句话职责)] —— 给任务拆解器认人用。
+
+    只给编号+名称时模型只能靠名字猜（「本周产品动态提纲」该给 R3 内容工厂还是
+    R6 数据分析官？），带上首条职责就能判准。整卡 5000+ 字塞进 prompt 只会稀释
+    注意力，取「## 职责」段首条即可。默认剔除 R0/R1：派发者不能是被派发对象。"""
+    out = []
+    for no, name in role_files():
+        if no in exclude:
+            continue
+        p = config.AGENTS_DIR / (no + ".role.md")
+        duty = ""
+        if p.exists():
+            m = re.search(r"##\s*职责[^\n]*\n+\s*-\s*([^\n]+)", p.read_text(encoding="utf-8"))
+            if m:
+                duty = m.group(1).strip()
+        out.append((no, name, duty))
+    return out
+
+
 def role_card(no, name, duty, position, type_="业务"):
     """组装新角色卡（CARD_TPL + 运行时变量）。"""
     today = datetime.date.today().isoformat()
@@ -138,8 +159,8 @@ def role_card(no, name, duty, position, type_="业务"):
     kb = str(config.ROOT).replace("\\", "/")
     ws = config.WORKSPACE_REL
     return CARD_TPL % {
-        "no": no, "name": name, "today": today, "idlower": no.lower(),
-        "dispatch": config.DISPATCH_REL, "type_": type_, "position": position,
+        "no": no, "name": name, "today": today,
+        "type_": type_, "position": position,
         "duties": duties, "kb": kb, "ws": ws, "wsname": name,
     }
 
