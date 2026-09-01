@@ -2,7 +2,7 @@
 """知识库 md 解析器：批阅台 / 角色架构 / 派发单 / 决策日志 / 时间线 / 任务清单。"""
 import re
 
-from . import config, knowledge
+from . import config, knowledge, store
 
 # ---------- 批阅台 ----------
 HEAD_RE = re.compile(r"^###\s+待决\s+(\d+)\s*[｜|]\s*(.+)$")
@@ -82,14 +82,14 @@ def parse_roles() -> list:
     cur_def = {"R0": "待批阅待决 8-15；发布/投放终审闸门", "R1": "D-009 已落实；日常调度+简报",
                "R4": "等应用设计完成后讨论投放", "R5": "深访阶段未到", "R9": "是否激活待 R0 批阅（待决 9）"}
     plan = {}
-    for p in parse_plan_rows():
+    for p in store.subtasks():
         plan.setdefault(p["role"], p)
     for it in rows:
         d = dispatch.get(it["code"]); p = plan.get(it["code"])
         if p:
             it["status"] = "执行中" if p["st"] and "完成" not in p["st"] else "执行中"
             it["current"] = p["sub"][:44]
-            it["ref"] = "派发单-动态 " + p["no"]
+            it["ref"] = "子任务 " + p["no"]
         else:
             it["status"] = d["status"] if d else st_def.get(it["code"], "待命")
             it["current"] = d["current"] if d else cur_def.get(it["code"], "待命")
@@ -97,22 +97,7 @@ def parse_roles() -> list:
     return rows
 
 
-# ---------- 派发单与决策日志 ----------
-def parse_plan_rows() -> list:
-    """读取《批阅台/派发单-动态.md》表行 → [{no, sub, role, expect, st}]。"""
-    p = config.dispatch_file()
-    if not p.exists():
-        return []
-    out = []
-    for ln in p.read_text(encoding="utf-8").split("\n"):
-        m = re.match(r"^\|\s*(T-\S+)\s*\|\s*([^|]+?)\s*\|\s*(R\d+)[^|]*\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|$", ln)
-        if m:
-            out.append({"no": m.group(1).strip(), "sub": m.group(2).strip(),
-                        "role": m.group(3).strip(), "expect": m.group(4).strip(),
-                        "st": m.group(5).strip()})
-    return out
-
-
+# ---------- 决策日志（R0 公文，仍是 md：人读人写） ----------
 def parse_dispatch() -> list:
     """解析《批阅台/决策日志.md》派发单 → [{role, roleCode, task, ref, target, status, current}]。"""
     text = knowledge.read_md(config.LOG_REL)

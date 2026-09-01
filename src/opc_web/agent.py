@@ -3,7 +3,7 @@
 
 v1.9：角色卡定义由本项目自己维护（agents/，不写入全局 dsh 配置）；
 web 引用与工作区创建一律用「角色名称」，R1/R2 仅为编号 Id——
-产出目标 = 《工作区/<角色名称>/回报-待落库.md》（v1.10 三目录模型）。
+产出目标 = 《工作区/<角色名称>/<子任务编号>.md》（v1.15：按子任务编号命名，不再共用固定名）。
 v1.8：headless one-shot（dsh --profile headless）已从调度链路移除——不再由控制台进程 spawn headless。
 新的执行方 = 常驻会话主 agent（R1 助理）；向下派活 = DSH subagent 体系。
 角色卡三通道加载（必须影响 dsh 本身）：
@@ -42,28 +42,44 @@ def preset_meta(no: str) -> dict:
     return {"name": role_preset(no), "description": ""}
 
 
-def agent_prompt(no: str, task_text: str) -> str:
-    """prompt 注入通道（第三通道）：角色卡全文 + 任务 + 工作根 + 回报尾行。"""
+def agent_prompt(no: str, task_text: str, out_rel: str = "", meta_rel: str = "") -> str:
+    """prompt 注入通道（第三通道）：角色卡全文 + 任务 + 工作根 + 产出约定。
+
+    v1.15：不再要求模型复述「回报人｜任务｜状态」尾行——任务号/角色中枢本来就知道，
+    让模型复述已知信息只会带来漏写。模型只写正文，外加回填 meta.json 的 status 一个字段。"""
     card = config.AGENTS_DIR / (no + ".role.md")
     head = card.read_text(encoding="utf-8") if card.exists() else "OPC 角色 %s" % no
     kb = str(config.ROOT).replace("\\", "/")
-    return head + "\n\n【任务】" + task_text + "\n工作根目录：" + kb + "（用 / 分隔路径，知识库唯一权威根）\n回报尾部固定行：回报人：" + no + "｜任务：T-xxx｜状态：完成/部分/阻塞"
+    tail = ""
+    if out_rel:
+        tail = ("\n产出文件：%s —— 边做边追加进度，可写多次（有输出即视为存活）。"
+                "\n完成后：把 %s 里的 status 改为 完成 / 部分 / 阻塞（只改这一个字段，其余勿动）。"
+                % (out_rel, meta_rel))
+    return (head + "\n\n【任务】" + task_text +
+            "\n工作根目录：" + kb + "（用 / 分隔路径，知识库唯一权威根）" + tail)
 
 
-def subtask_spec(no: str, task_text: str, expect: str = "") -> dict:
-    """subagent 派发规格：角色 / preset / 注入 prompt / 产出路径 / 回报格式。
-    主会话 R1 收到后可直接据此调 DSH subagent（prompt=spec['prompt']，desc 含 preset 名）。"""
+def subtask_spec(no: str, task_text: str, expect: str = "", sub_no: str = "") -> dict:
+    """subagent 派发规格：角色 / preset / 注入 prompt / 产出路径。
+    主会话 R1 收到后可直接据此调 DSH subagent（prompt=spec['prompt']，desc 含 preset 名）。
+
+    产出按子任务编号命名（T-001-S1.md），不再是全角色共用的「回报-待落库.md」——
+    共用固定名会让同角色的多个任务互相覆盖，且归档正则只认得第一条。"""
+    if not sub_no:
+        raise ValueError("subtask_spec 需要子任务编号：产出按编号命名，共用固定名会让同角色的多任务互相覆盖")
+    d = "%s/%s" % (config.WORKSPACE_REL, config.role_ws_dir(no))
+    out_rel = "%s/%s.md" % (d, sub_no)
+    meta_rel = "%s/%s.meta.json" % (d, sub_no)
     return {
         "role": no,
         "preset": role_preset(no),
         "presetName": preset_meta(no)["name"],
-        "prompt": agent_prompt(no, task_text),
+        "prompt": agent_prompt(no, task_text, out_rel, meta_rel),
         "workspaceRoot": str(config.ROOT).replace("\\", "/"),
-        "output": "%s/%s/回报-待落库.md" % (config.WORKSPACE_REL, config.role_ws_dir(no)),
-        "outputLegacy": "%s/（v1.10 无旧后缀目录，产出固定《工作区/<角色名称>/回报-待落库.md》）" % config.WORKSPACE_REL,
-        "reportEnd": "回报人：%s｜任务：T-xxx｜状态：完成/部分/阻塞" % no,
+        "output": out_rel,
+        "meta": meta_rel,
         "expect": expect,
-        "discipline": "《知识库/》档案与《批阅台/》公文只读不写；产出先落《%s/<角色名称>/回报-待落库.md》（角色名称，如 需求研究员）再由 R1 归档。" % config.WORKSPACE_REL,
+        "discipline": "《知识库/》档案与《批阅台/》公文只读不写；产出先落《%s》再由 R1 归档。" % out_rel,
     }
 
 
