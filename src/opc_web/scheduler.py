@@ -27,8 +27,7 @@ def _wb_role_dirs():
 
 
 SCHED_LOCK = threading.Lock()
-SCHED_STATE = {"busy": False, "tag": "", "at": "", "lastOk": None, "paused": False,
-               "issuedTasks": ""}   # 已生成指令的任务编号串（防 auto_pilot 重复刷指令）
+SCHED_STATE = {"busy": False, "tag": "", "lastOk": None, "paused": False}
 
 
 def plan_execute() -> dict:
@@ -571,41 +570,6 @@ def ws_files() -> list:
         if cur is None or (cur["archived"] and not f["archived"]):
             seen[key] = f
     return sorted(seen.values(), key=lambda f: (f["role"], f["name"], f["rel"]))
-
-
-def rename_legacy_ws_files() -> list:
-    """历史旧命名 → 新命名格式（就地改名，含 已归档/）：
-       T-xxx-Sn.md        → T-xxx-Sn-report.md
-       T-xxx-工作汇总.md    → T-xxx-summary.md
-       已是新命名 / meta.json / 其它文件不动；目标已存在则跳过。"""
-    renamed = []
-    ws = config.WORKSPACE_ROOT
-    if not ws.is_dir():
-        return renamed
-    for p in sorted(ws.rglob("*")):
-        if not p.is_file():
-            continue
-        name = p.name
-        if not name.endswith(".md") or name.endswith(("-report.md", "-output.md", "-summary.md")):
-            continue
-        base = name[:-3]
-        new = None
-        if re.fullmatch(r"T-\d+-S\d+", base):
-            new = base + "-report.md"
-        elif re.fullmatch(r"T-\d+-工作汇总", base):
-            new = re.sub(r"-工作汇总$", "", base) + "-summary.md"
-        if not new:
-            continue
-        target = p.with_name(new)
-        if target.exists():
-            continue
-        try:
-            p.rename(target)
-            renamed.append("%s -> %s" % (p.relative_to(config.ROOT).as_posix(),
-                                         target.relative_to(config.ROOT).as_posix()))
-        except OSError:
-            pass
-    return renamed
 
 
 def token_rows() -> list:

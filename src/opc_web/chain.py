@@ -18,8 +18,6 @@ import re
 from . import agent, config, runner, scheduler as sch, store
 
 EXEC_TIMEOUT = 900          # 单个子任务的 headless 执行超时（秒）
-_META_COPY = ("subNo", "taskNo", "role", "roleName", "sub", "expect", "output", "meta")
-
 
 def _flat(s):
     """dsh headless 把输入当命令行参数：Windows 命令行遇换行即截断，任何给 headless 的文本必须压成单行。"""

@@ -50,12 +50,13 @@ def events(since: int = 0) -> dict:
                 "events": [e for e in _ACTIVE["events"] if e["seq"] > since]}
 
 
-def run_headless_sync(task_text: str, timeout: float = 600) -> str:
-    """同步直跑 dsh headless（最终文本模式），返回 stdout。
+def _spawn_headless(argv: list, timeout: float) -> bytes:
+    """启动 dsh headless 子进程并收尾，返回其原始 stdout（stderr 合并）字节。
 
     超时语义（v1.14，来自实测）：headless 只在 turn 结束后一次性打印 final 文本，
-    因此一旦监控到任何输出行即视为任务存活、放弃强杀、等待自然结束；
-    仅当全程无输出且超时才强杀（防 headless 静默挂死泄漏进程树）。"""
+    因此一旦收到任何输出即视为任务存活、放弃强杀、等待自然结束；
+    仅当全程无输出且超时才强杀（防 headless 静默挂死泄漏进程树）。
+    spawn 失败返回 b""。"""
     exe = shutil.which("dsh") or "dsh"
     flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
     si = subprocess.STARTUPINFO() if hasattr(subprocess, "STARTUPINFO") else None
@@ -63,32 +64,29 @@ def run_headless_sync(task_text: str, timeout: float = 600) -> str:
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         si.wShowWindow = 0
     try:
-        p = subprocess.Popen([exe, "--profile", "headless", task_text],
+        p = subprocess.Popen([exe, "--profile", "headless"] + argv,
                              cwd=str(config.ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             text=True, encoding="utf-8", errors="replace",
                              creationflags=flags, startupinfo=si, env=_child_env())
     except Exception:
-        return ""
-    out = []
+        return b""
+    chunks = []
 
     def _drain():
         try:
-            for ln in p.stdout:
-                out.append(ln)
+            for blk in iter(lambda: p.stdout.read(65536), b""):
+                chunks.append(blk)
         except Exception:
             pass
 
     threading.Thread(target=_drain, daemon=True).start()
     t0 = time.monotonic()
-    alive = False
     while True:
         if p.poll() is not None:
             break                       # 自然结束
-        if out:
-            alive = True                # 有输出 → 任务在推进，不再按超时强杀
-        if alive:
+        if chunks:
+            # 有输出 → 任务在推进：等自然结束（不设超时上限）
             try:
-                p.wait()                # 等自然结束（不设超时上限）
+                p.wait()
             except Exception:
                 pass
             break
@@ -108,7 +106,12 @@ def run_headless_sync(task_text: str, timeout: float = 600) -> str:
         p.stdout.close()
     except Exception:
         pass
-    return "".join(out).strip()
+    return b"".join(chunks)
+
+
+def run_headless_sync(task_text: str, timeout: float = 600) -> str:
+    """同步直跑 dsh headless（最终文本模式），返回 stdout。"""
+    return _spawn_headless([task_text], timeout).decode("utf-8", "replace").strip()
 
 
 def _decode_stdout(data: bytes) -> str:
@@ -123,57 +126,7 @@ def run_headless_task(task_text: str, timeout: float = 600):
 
     用量来自事件流 assistant/chunk 的 data.usage（inputTokens/outputTokens 等），
     供 chain 写回子任务 meta.json；最终文本取 run/end.text（无则拼 chunk）。"""
-    exe = shutil.which("dsh") or "dsh"
-    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    si = subprocess.STARTUPINFO() if hasattr(subprocess, "STARTUPINFO") else None
-    if si is not None:
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        si.wShowWindow = 0
-    try:
-        p = subprocess.Popen([exe, "--profile", "headless", task_text, "--events-jsonl"],
-                             cwd=str(config.ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                             creationflags=flags, startupinfo=si, env=_child_env())
-    except Exception:
-        return "", None
-    chunks = []
-
-    def _drain_bin():
-        try:
-            for blk in iter(lambda: p.stdout.read(65536), b""):
-                chunks.append(blk)
-        except Exception:
-            pass
-
-    threading.Thread(target=_drain_bin, daemon=True).start()
-    t0 = time.monotonic()
-    alive = False
-    while True:
-        if p.poll() is not None:
-            break
-        if chunks:
-            alive = True
-        if alive:
-            try:
-                p.wait()
-            except Exception:
-                pass
-            break
-        if time.monotonic() - t0 > timeout:
-            subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True, text=True)
-            try:
-                p.wait(timeout=3)
-            except Exception:
-                try:
-                    p.kill()
-                except Exception:
-                    pass
-            break
-        time.sleep(0.5)
-    try:
-        p.stdout.close()
-    except Exception:
-        pass
-    text = _decode_stdout(b"".join(chunks))
+    text = _decode_stdout(_spawn_headless([task_text, "--events-jsonl"], timeout))
     usage = None
     final = ""
     for ln in text.splitlines():

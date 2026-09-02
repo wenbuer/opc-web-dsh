@@ -155,6 +155,45 @@ class TestParsers(_TmpKB):
         self.assertIn("落地页", cur["R8"])       # 待命中仍显示上一次执行的标题
 
 
+class TestReviewEdits(_TmpKB):
+    """review.py 的 md 段编辑（定位 / 段界 / 改行 / 搬段）回归。"""
+
+    def _seed(self):
+        config.BATCH_ROOT.mkdir(parents=True, exist_ok=True)
+        (config.BATCH_ROOT / "批阅台.md").write_text(
+            "## 工作内容\n"
+            "### 工作 1｜例行进展一\n- **背景**：做了事\n\n"
+            "## 决策裁决\n"
+            "### 待决 2｜要不要上线\n- **背景**：内容\n- **R0 批阅**：待填\n\n"
+            "## 已批阅归档\n", encoding="utf-8")
+
+    def test_write_piyue_only_touches_own_item(self):
+        """同区前一个 工作 条目带 R0 批阅行时，write_piyue 不能误替换跨条目。"""
+        self._seed()
+        review.write_piyue("2", "批准", "同意试点")
+        text = knowledge.read_md(config.PIYUETAI_REL)
+        self.assertEqual(text.count("已阅归档"), 0)          # 工作 1 未受影响
+        self.assertIn("同意试点", text)
+        self.assertNotIn("待填", text)
+
+    def test_append_r1_exec_replaces_not_duplicates(self):
+        self._seed()
+        review.append_r1_exec("2", "已建任务 T-001，待 R1 派发执行")
+        review.append_r1_exec("2", "已建任务 T-002，待 R1 派发执行")
+        text = knowledge.read_md(config.PIYUETAI_REL)
+        self.assertEqual(text.count("- **R1 执行**："), 1)
+        self.assertIn("T-002", text)
+
+    def test_archive_work_moves_section(self):
+        self._seed()
+        title = review.archive_work(1)
+        self.assertEqual(title, "例行进展一")
+        data = parsers.parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
+        self.assertEqual(data["work"], [])                    # 已移出工作内容区
+        self.assertEqual([it["n"] for it in data["archive"]], [1])  # 已阅归档区可见
+        self.assertIn("已阅归档", data["archive"][0]["lines"][-1])
+
+
 class TestChildEnv(unittest.TestCase):
     """dsh 子进程必须拿到 .env 里的密钥。
 

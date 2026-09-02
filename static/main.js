@@ -980,68 +980,10 @@
       (j.events || []).forEach(function(ev){ runRender(ev); });
     }).catch(function(){});
   }
-  function runMsgText(d){
-    var m = d && d.message ? d.message : null;
-    if (!m) return d && d.error ? String(d.error) : "";
-    var c = m.content;
-    if (c == null) return "";
-    if (typeof c === "string") return c;
-    if (Array.isArray(c)) return c.filter(function(b){ return b && b.type === "text"; }).map(function(b){ return b.text || ""; }).join("");
-    try { return JSON.stringify(c); } catch (err) { return ""; }
-  }
   function runStepEl(turn, step, label){
     var el = document.createElement("div");
     el.className = "run-step";
     el.textContent = "▶ 回合 " + turn + (step === "-" ? "" : " · 步骤 " + step) + (label ? " · " + label : "");
-    return el;
-  }
-  function runPromptEl(ev){
-    var d = ev.data || {};
-    var wrap = document.createElement("div");
-    wrap.className = "run-prompt";
-    var sys = d.system || "";
-    var msgs = d.messages || [];
-    var bar = document.createElement("div");
-    bar.className = "rp-bar";
-    bar.textContent = "完整 prompt（点击展开/收起）· step " + (d.step != null ? d.step : "?") + " · " + (d.provider || "") + " / " + (d.model || "") + " · " + msgs.length + " 条消息";
-    var body = document.createElement("div");
-    body.className = "rp-body";
-    var sysB = document.createElement("b");
-    sysB.textContent = "system";
-    var sysP = document.createElement("pre");
-    sysP.textContent = sys;
-    body.appendChild(sysB); body.appendChild(sysP);
-    msgs.forEach(function(m){
-      var mb = document.createElement("b");
-      mb.textContent = String(m.role || "?");
-      var mp = document.createElement("pre");
-      var c = m.content;
-      var s = "";
-      if (typeof c === "string") s = c;
-      else if (Array.isArray(c)) s = c.map(function(b){ return b && b.type === "text" ? b.text : (b.type === "tool-call" ? "[tool-call " + b.name + "]" : "[block " + (b.type||"") + "]"); }).join("\n");
-      else { try { s = JSON.stringify(c); } catch (err) {} }
-      mp.textContent = s.slice(0, 1500);
-      body.appendChild(mb); body.appendChild(mp);
-    });
-    wrap.appendChild(bar); wrap.appendChild(body);
-    bar.addEventListener("click", function(){ wrap.classList.toggle("open"); });
-    return wrap;
-  }
-  function runToolEl(ev){
-    var d = ev.data || {};
-    var el = document.createElement("div");
-    el.className = "run-tool";
-    var a = document.createElement("span");
-    a.className = "rt-ico";
-    a.textContent = "▸";
-    var b = document.createElement("b");
-    b.textContent = String(d.name || "工具");
-    el.appendChild(a); el.appendChild(b);
-    if (d.arguments != null){
-      var pre = document.createElement("pre");
-      pre.textContent = String(d.arguments).slice(0, 400);
-      el.appendChild(pre);
-    }
     return el;
   }
   function runOutEl(turn, step){
@@ -1120,12 +1062,13 @@
     return outs.length ? outs[outs.length - 1] : null;
   }
   function runRender(ev){
+    /* 事件源 = runner 缓冲（chain 只发 6 种合成事件）：run/start → 新建任务段；
+       其余事件追加进当前段。 */
     var lg = $("runLog");
     if (!lg) return;
     if (lg.querySelector(".placeholder")) lg.innerHTML = "";
     var type = ev.type || "";
     var d = ev.data || {};
-    var ag = ev.agent || "";
     var body;
     if (type === "run/start"){
       body = newRunSec(ev);
@@ -1137,50 +1080,19 @@
       body = runSecBody(true);
     }
     if (!body) return;
-    if (ag){
-      var agEl = document.createElement("div");
-      agEl.className = "run-agent";
-      var aid = String(ag);
-      if (aid.indexOf("session-") === 0) aid = aid.slice(8);
-      agEl.textContent = "agent: " + aid.slice(0, 14);
-      body.appendChild(agEl);
-    }
-    if (type === "turn/start"){
-      body.appendChild(runStepEl(d.turn, "-", "回合开始"));
-    } else if (type === "step/start"){
+    if (type === "step/start"){
       body.appendChild(runStepEl(d.turn, d.step, ""));
       body.appendChild(runOutEl(d.turn, d.step));
-    } else if (type === "debug/request"){
-      body.appendChild(runPromptEl(ev));
     } else if (type === "assistant/chunk"){
-      var ob2 = runLastOut();
       if (d.text != null){
-        if (!ob2){ ob2 = runOutEl("", ""); body.appendChild(ob2); }
+        var ob = runLastOut();
+        if (!ob){ ob = runOutEl("", ""); body.appendChild(ob); }
         var span = document.createElement("span");
         span.textContent = d.text;
-        ob2.appendChild(span);
-      } else if (d.reasoning != null){
-        if (!ob2){ ob2 = runOutEl("", ""); body.appendChild(ob2); }
-        var rs = document.createElement("span");
-        rs.className = "rt-reason";
-        rs.textContent = d.reasoning;
-        ob2.appendChild(rs);
-      }
-    } else if (type === "tool/call"){
-      body.appendChild(runToolEl(ev));
-    } else if (type === "tool/result"){
-      var rc = body.querySelectorAll(".run-tool");
-      var box = rc.length ? rc[rc.length - 1] : null;
-      if (box){
-        var res = document.createElement("em");
-        res.className = "rt-res";
-        res.textContent = "↳ " + runMsgText(d).slice(0, 300);
-        box.appendChild(res);
+        ob.appendChild(span);
       }
     } else if (type === "step/end"){
       body.appendChild(runStepEl(d.turn, d.step, "步骤完成"));
-    } else if (type === "turn/end"){
-      body.appendChild(runStepEl(d.turn, "-", "回合完成：" + String(((d.reason || {}).kind || ""))));
     } else if (type === "run/end"){
       var e4 = document.createElement("div");
       e4.className = "run-banner end";
@@ -1191,20 +1103,6 @@
       e5.className = "run-step";
       e5.textContent = "进程退出码：" + (d.code != null ? d.code : "?");
       body.appendChild(e5);
-    } else if (type === "agent/inbox/spliced"){
-      var e6 = document.createElement("div");
-      e6.className = "run-step";
-      var txt = (d.message && d.message.content) ? (typeof d.message.content === "string" ? d.message.content.slice(0, 160) : "") : "";
-      e6.textContent = "调度： " + txt.replace(/\s+/g, " ").slice(0, 160);
-      body.appendChild(e6);
-    } else {
-      var noise = (type === "approval/policy" || type === "sandbox/mode" || type === "session/title" || type === "session/title-llm-request" || type === "request/header" || type === "request/context");
-      if (!noise){
-        var e7 = document.createElement("div");
-        e7.className = "run-step muted";
-        e7.textContent = type.replace(/\//g, " · ");
-        body.appendChild(e7);
-      }
     }
     lg.scrollTop = lg.scrollHeight;
   }
