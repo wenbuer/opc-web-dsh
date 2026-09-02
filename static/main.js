@@ -1387,7 +1387,24 @@
     });
   });
 
+  /* ================= 主题切换（右上角按钮 · localStorage 记忆） ================= */
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+    var b = document.getElementById("btnTheme");
+    if (b) b.textContent = t === "dark" ? "☀️ 浅色" : "🌙 深色";
+    try { localStorage.setItem("opcTheme", t); } catch(e){}
+  }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "dark" : "light";
+    applyTheme(cur === "dark" ? "light" : "dark");
+  }
+
   /* ================= 启动 ================= */
+  var savedTheme = "light";
+  try { savedTheme = localStorage.getItem("opcTheme") || "light"; } catch(e){}
+  applyTheme(savedTheme);
+  var tb = document.getElementById("btnTheme");
+  if (tb) tb.addEventListener("click", toggleTheme);
   setInterval(tick, 30000);
   tick();
   loadHome();
