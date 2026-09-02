@@ -830,7 +830,7 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 #btnDirUp,#btnDirPick{padding:4px 12px;font-size:12px;border-radius:6px}
 
 /* ---- 主题切换按钮（右上角） ---- */
-.theme-toggle{margin-left:10px;flex:none;padding:4px 13px;border-radius:20px;line-height:1.5;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;letter-spacing:1px;transition:border-color .15s,color .15s,transform .15s}
+.theme-toggle{margin-left:10px;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-sizing:border-box;min-width:102px;padding:4px 12px;border-radius:20px;line-height:1.5;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;letter-spacing:1px;transition:border-color .15s,color .15s,transform .15s}
 
 
 .theme-toggle:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
