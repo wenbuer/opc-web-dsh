@@ -28,9 +28,6 @@
     if (!d) return;
     $("statPending").textContent = "待裁决 " + (d.pendingCount != null ? d.pendingCount : "—");
     $("statArchived").textContent = "已批阅 " + (d.archiveCount != null ? d.archiveCount : "—");
-    var dd = (d.daily && d.daily.length) ? " · " + d.daily.length + " 份简报" : "";
-    $("statSrv").textContent = "后端在线" + dd;
-    $("statSrv").className = "stat ok";
   }
 
   function tick(){
