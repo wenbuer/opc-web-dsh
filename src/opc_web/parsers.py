@@ -74,26 +74,25 @@ def parse_roles() -> list:
                         if item["code"] == m.group(1):
                             item["desc"] = dm.group(1).strip()
                     break
-    dispatch = {}
-    for d in parse_dispatch():
-        dispatch[d["roleCode"]] = d
-    st_def = {"R0": "指挥中", "R1": "执行中", "R2": "执行中", "R3": "执行中", "R4": "暂不激活",
-              "R5": "暂不激活", "R6": "执行中", "R7": "执行中", "R8": "执行中", "R9": "未激活"}
-    cur_def = {"R0": "待批阅待决 8-15；发布/投放终审闸门", "R1": "D-009 已落实；日常调度+简报",
-               "R4": "等应用设计完成后讨论投放", "R5": "深访阶段未到", "R9": "是否激活待 R0 批阅（待决 9）"}
-    plan = {}
-    for p in store.subtasks():
-        plan.setdefault(p["role"], p)
+    # v1.18：状态只有两种 —— 有未完成子任务 = 执行中，否则待命中；R0/R1 固定指挥中。
+    # 原先是一张写死的 st_def/cur_def（R4/R5「暂不激活」、R9「未激活」、「深访阶段未到」…），
+    # 跟角色实际有没有活干毫无关系；决策日志里靠文本匹配出的状态同样早就对不上，一并弃用。
+    busy, latest_sub = set(), {}
+    for p in store.subtasks():                 # 已按编号排序，后写覆盖 = 该角色最新的子任务
+        if p["st"] in ("待派", "已派"):
+            busy.add(p["role"])
+        latest_sub[p["role"]] = p
+    last_exec = store.last_execution_by_role()
     for it in rows:
-        d = dispatch.get(it["code"]); p = plan.get(it["code"])
-        if p:
-            it["status"] = "执行中" if p["st"] and "完成" not in p["st"] else "执行中"
-            it["current"] = p["sub"][:44]
-            it["ref"] = "子任务 " + p["no"]
+        code = it["code"]
+        it["status"] = "指挥中" if code in ("R0", "R1") else ("执行中" if code in busy else "待命中")
+        e = last_exec.get(code)
+        if e and e.get("sub"):                 # 最近一次执行：执行中=正在做的，待命中=上次做的
+            it["current"], it["ref"] = e["sub"][:44], "子任务 " + e["sub_no"]
+        elif code in latest_sub:               # 无执行记录（如 md 迁移来的历史数据）→ 退到最新子任务
+            it["current"], it["ref"] = latest_sub[code]["sub"][:44], "子任务 " + latest_sub[code]["no"]
         else:
-            it["status"] = d["status"] if d else st_def.get(it["code"], "待命")
-            it["current"] = d["current"] if d else cur_def.get(it["code"], "待命")
-            it["ref"] = d["ref"] if d else ""
+            it["current"], it["ref"] = "暂无执行记录", ""
     return rows
 
 

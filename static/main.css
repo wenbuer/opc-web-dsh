@@ -226,8 +226,7 @@ main{flex:1;overflow:hidden}
 .role-card .rc-duty{font-size:10.5px;color:var(--dim);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .role-card .rc-cur{font-size:10px;color:var(--faint);margin-top:5px;border-top:1px dashed var(--line);padding-top:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .role-card .rc-st{position:absolute;top:7px;right:9px;font-size:9.5px;padding:2px 7px;border-radius:10px;border:1px solid;letter-spacing:.5px}
-.rc-st.on{color:var(--gold);border-color:rgba(232,183,61,.4)}
-.rc-st.wait{color:var(--dim);border-color:var(--line)}
+.rc-st.on{color:var(--gold);border-color:rgba(232,183,61,.45);background:rgba(232,183,61,.08)}
 .rc-st.off{color:var(--faint);border-color:var(--line)}
 .rc-st.chief{color:var(--red-bright);border-color:rgba(231,76,60,.45)}
 

@@ -214,6 +214,19 @@ def executions(task_no: str = "", sub_no: str = "") -> list:
         return [dict(r) for r in c.execute(q + " ORDER BY started_at, id", args)]
 
 
+def last_execution_by_role() -> dict:
+    """每个角色最近一次执行 → {role: {role, sub_no, started_at, result, sub}}。
+
+    按时间正序遍历、后写覆盖先写 = 每个角色只留最新一条；比给每行跑一次
+    相关子查询简单，规模也远没到需要索引优化的程度。"""
+    with _db() as c:
+        rows = c.execute(
+            "SELECT e.role, e.sub_no, e.started_at, e.result, s.sub "
+            "FROM execution e LEFT JOIN subtask s ON s.no = e.sub_no "
+            "ORDER BY e.started_at, e.id").fetchall()
+    return {r["role"]: dict(r) for r in rows}
+
+
 # ---------- 一次性迁移：退役的 md 表格 → 本库 ----------
 _ROW = re.compile(r"^\|(.+)\|\s*$")
 

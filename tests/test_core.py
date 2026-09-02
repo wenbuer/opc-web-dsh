@@ -128,6 +128,31 @@ class TestParsers(_TmpKB):
         self.assertEqual(r4["name"], "增长运营")
         self.assertIn("投放执行", r4["desc"])
 
+    def test_role_status_is_two_states_only(self):
+        """状态只剩 执行中 / 待命中（R0R1 指挥中）；「暂不激活」「未激活」不再出现。"""
+        config.KB_ROOT.mkdir(parents=True, exist_ok=True)
+        (config.KB_ROOT / "OPC智能体角色架构.md").write_text(
+            "| 编号 | 名称 | 职责 | 目标产出 | 状态 |\n|---|---|---|---|---|\n"
+            "| R1 | 老板助理 | 调度派发 | 指令 | — |\n"
+            "| R4 | 增长运营 | 投放执行 | 投放周报 | — |\n"
+            "| R8 | 产品设计师 | 设计实现 | 稿件 | — |\n", encoding="utf-8")
+        no = store.add_task("演示任务")
+        subs = store.replace_subtasks(no, [
+            {"sub": "跑一个投放实验", "role": "R4", "expect": "简报"},
+            {"sub": "画一个落地页", "role": "R8", "expect": "页面"},
+        ])
+        store.set_subtask(subs[0], "已派")      # R4 还在跑
+        store.set_subtask(subs[1], "完成")      # R8 已经干完
+        roles_ = parsers.parse_roles()
+        st = {r["code"]: r["status"] for r in roles_}
+        self.assertEqual(st["R1"], "指挥中")
+        self.assertEqual(st["R4"], "执行中")
+        self.assertEqual(st["R8"], "待命中")
+        self.assertNotIn("暂不激活", list(st.values()))
+        self.assertNotIn("未激活", list(st.values()))
+        cur = {r["code"]: r["current"] for r in roles_}
+        self.assertIn("落地页", cur["R8"])       # 待命中仍显示上一次执行的标题
+
 
 class TestChildEnv(unittest.TestCase):
     """dsh 子进程必须拿到 .env 里的密钥。

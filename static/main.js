@@ -102,9 +102,9 @@
     var active = 0;
     (roles || []).forEach(function(r){
       if (r.code === "R0" || r.code === "R1") return;
-      var stCls = "off";
-      if (r.status === "执行中" || r.status === "指挥中"){ stCls = "on"; active++; }
-      else if (r.status === "暂不激活" || r.status === "待命"){ stCls = "wait"; }
+      /* 两态：执行中亮起，其余（待命中）暗置。顶部计数只统计真正在跑的角色。 */
+      var stCls = r.status === "执行中" ? "on" : "off";
+      if (r.status === "执行中") active++;
       var card = document.createElement("div");
       card.className = "role-card";
       card.innerHTML = "<span class='rc-st " + stCls + "'>" + esc(r.status || "") + "</span>"
