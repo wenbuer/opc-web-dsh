@@ -115,19 +115,26 @@ def r1_archive() -> dict:
                 continue
             sub_no = str(meta.get("subNo") or meta_p.stem.replace(".meta", ""))
             status = str(meta.get("status") or "待执行").strip()
-            body_p = d / (sub_no + ".md")
+            body_p = d / (sub_no + "-report.md")          # 新命名：完成回报
+            if not body_p.exists():
+                body_p = d / (sub_no + ".md")             # 兼容历史旧命名
             if status in ("待执行", "执行中") or not body_p.exists():
                 skipped.append("%s（%s）" % (sub_no, status if body_p.exists() else "正文未产出"))
                 continue
-            text = body_p.read_text(encoding="utf-8")
-            store.put_report(sub_no, str(meta.get("taskNo") or ""), str(meta.get("role") or ""),
-                             status, _title_of(text, sub_no), text,
-                             body_p.relative_to(config.ROOT).as_posix())
-            store.set_subtask(sub_no, status)
-            store.settle_execution(sub_no, status)
+            text = config.read_text(body_p)
+            # 产出生命周期（模型 A）：工作中 = -report（完成回报）；归档时改名为 -output.md 移入 已归档/
             arc = d / "已归档"
             arc.mkdir(exist_ok=True)
-            body_p.replace(arc / body_p.name)
+            stem = body_p.stem
+            if stem.endswith("-report"):
+                stem = stem[: -len("-report")]
+            out_name = stem + "-output.md"
+            arc_rel = (arc / out_name).relative_to(config.ROOT).as_posix()
+            store.put_report(sub_no, str(meta.get("taskNo") or ""), str(meta.get("role") or ""),
+                             status, _title_of(text, sub_no), text, arc_rel)
+            store.set_subtask(sub_no, status)
+            store.settle_execution(sub_no, status)
+            body_p.replace(arc / out_name)
             meta_p.replace(arc / meta_p.name)
             done.append("%s → 回报入库（%s）" % (sub_no, status))
         # 内容类交付物（非子任务产出）：不猜落库路径，登记待 R1/R0 指定
@@ -272,6 +279,59 @@ def _one_line_digest(text: str, limit: int = 120) -> str:
     return (t[:limit] + "…") if len(t) > limit else t
 
 
+# 「需要 R0 拍板」小节里常见的流程/机制套话（本身不含任何具体待决内容），抽取时剔除：
+# 例：“任务含决策信号（定价 / 方向 / 是否推进等），请 R0 裁决；驳回 / 修改意见将触发重新派发。”
+# 这类话等于没写 —— R0 要看到的是“现状背景 → 可选方案 → 建议 → 具体请拍板什么”。
+_DECISION_NOISE = ("决策信号", "请 R0 裁决", "请R0裁决", "R0 裁决", "请 R0 拍板", "请R0拍板",
+                   "驳回", "重新派发", "修改意见", "回报未列出", "请展开本条目", "请直接批复",
+                   "完整产出后再给出意见", "读完完整产出后再给出意见")
+_DECISION_CONCRETE = ("方案", "还是", "或", "建议", "选择", "采用", "预算", "上限", "金额", "？", "?")
+
+
+def _clean_decision_seg(role: str, seg: str) -> str:
+    """把某角色「需要 R0 拍板」原文里的机制套话句剔除，只留具体待决内容（过短视为没写）。"""
+    t = (seg or "").strip()
+    t = re.sub(r"^[#\-*\s]*" +
+               r"(?:需要\s*R0\s*拍板|需要R0拍板|需要拍板|待拍板|请\s*R0\s*拍板|请R0拍板|需\s*R0\s*决策|请求\s*R0\s*决策)" +
+               r"[\s:：]*", "", t)
+    frags = [f.strip(" \t·-*#") for f in re.split(r"(?<=[。！？!?；;])|[\n\r]", t)]
+    keep = []
+    for f in frags:
+        if not f:
+            continue
+        noise = any(w in f for w in _DECISION_NOISE)
+        concrete = any(w in f for w in _DECISION_CONCRETE) or bool(re.search(r"(?<![A-Za-zRr])[0-9０-９]", f))
+        if noise and not concrete:
+            continue          # 纯机制套话，不等于要拍板的具体内容
+        keep.append(f)
+    cleaned = "\n".join(keep).strip()
+    return cleaned if len(cleaned) >= 20 else ""
+
+
+def _decision_items(reps: list) -> str:
+    """从各角色回报正文抽取「需要 R0 拍板」具体内容 → 拼接为待决条目字段值（无则空串）。
+
+    子 agent 按约定写「## 需要 R0 拍板」小节（或内联“需要 R0 拍板：…”）；
+    这里取首个命中位置起 700 字内、到下一个二级标题前的原文，剔除“请 R0 裁决 / 驳回将
+    重新派发”这类机制空话后，R0 拍板看的就是它。"""
+    out = []
+    marks = ("需要 R0 拍板", "需要R0拍板", "需要拍板", "待拍板",
+             "请 R0 拍板", "请R0拍板", "需 R0 决策", "请求 R0 决策")
+    for role, body in (reps or []):
+        t = str(body or "")
+        pos = min([i for mk in marks if (i := t.find(mk)) >= 0] or [-1])
+        if pos < 0:
+            continue
+        seg = t[pos:pos + 700]
+        cut = seg.find("\n## ")
+        if cut > 0:
+            seg = seg[:cut]
+        seg = _clean_decision_seg(role, seg)
+        if seg:
+            out.append(("【%s】\n" % (role or "")) + seg)
+    return "\n\n".join(out)
+
+
 def work_summary(task_no: str) -> str:
     """R1 汇总任务全部 subagent 产出 →《工作区/老板助理（枢纽）/T-xxx-工作汇总.md》。
 
@@ -328,7 +388,7 @@ def work_summary(task_no: str) -> str:
             lines.append(_TRIPLE_BT)
             lines.append(_tree_text(config.ROOT))
             lines.append(_TRIPLE_BT)
-        out_p = config.WORKSPACE_ROOT / config.sanitize_dir(config.role_name("R1")) / (task_no + "-工作汇总.md")
+        out_p = config.WORKSPACE_ROOT / config.sanitize_dir(config.role_name("R1")) / (task_no + "-summary.md")
         out_p.parent.mkdir(parents=True, exist_ok=True)
         out_p.write_text("\n".join(lines), encoding="utf-8")
         return out_p.relative_to(config.ROOT).as_posix()
@@ -346,18 +406,28 @@ def piyue_report(task_no: str, task_text: str, ok_cnt: int, total: int, fail: li
     try:
         rel = config.PIYUETAI_REL
         p = config.ROOT / rel
-        text = p.read_text(encoding="utf-8") if p.exists() else ""
+        text = config.read_text(p) if p.exists() else ""
         n = _piyue_next_no(text)          # 现有条目最大编号 +1（无则从 1 起）
         brief = "无回报正文"
         brief_hay = ""          # 决策信号检测用全文
+        decisions = ""         # 回报里抽出的「需要 R0 拍板」原文（决策项）
+        reps = []
         try:
             reps = store.reports(task_no)
+        except Exception:
+            reps = []
+        try:
             if reps:
-                last = reps[-1]
-                raw = str(last.get("body") or "")
-                brief_hay = _digest_body(raw, limit=3000)
-                one = _one_line_digest(raw, limit=130)   # 回报摘要 = 一段话
-                brief = "%s（%s）：%s" % (last.get("role") or "?", last.get("status") or "?", one or "无正文内容")
+                raw_last = str(reps[-1].get("body") or "")
+                brief_hay = _digest_body(raw_last, limit=3000)
+                # R 建议：逐角色给一段摘要（每人一行续行），不再是只取最后一份的 130 字压缩
+                parts = []
+                for rp in reps:
+                    rb = str(rp.get("body") or "")
+                    one = _one_line_digest(rb, limit=170) or "无正文内容"
+                    parts.append("%s（%s）：%s" % (rp.get("role") or "?", rp.get("status") or "?", one))
+                brief = "\n".join(parts)
+                decisions = _decision_items([(rp.get("role"), rp.get("body")) for rp in reps])
         except Exception:
             pass
         task_s = (task_text or "").replace(chr(10), " ").replace("|", "／")
@@ -368,7 +438,11 @@ def piyue_report(task_no: str, task_text: str, ok_cnt: int, total: int, fail: li
             lines_b += _field_lines("任务", task_s[:160])
             lines_b += _field_lines("进展", prog)
             lines_b += _field_lines("R 建议（R1）", brief)
-            lines_b += _field_lines("需要 R0 拍板什么", "任务含决策信号（定价 / 方向 / 是否推进等），请 R0 裁决；驳回 / 修改意见将触发重新派发。")
+            # “需要 R0 拍板什么”必须落具体内容：角色回报里写明就用回报原文；
+            # 回报没写明时回退到任务原话（R0 自己下达时的决策请求）。
+            # 绝不把“任务含决策信号…请 R0 裁决；驳回将触发重新派发”这类机制空话写进待决。
+            ask = decisions or task_s
+            lines_b += _field_lines("需要 R0 拍板什么", ask)
             lines_b += ["- **R0 批阅**：待填"]
             blk = chr(10) + chr(10).join(lines_b) + chr(10)
             section = "## 决策裁决"
@@ -431,14 +505,19 @@ def rn_outputs(no: str = "") -> list:
     for d in _wb_role_dirs():
         files = []
         for p in sorted(d.glob("*.md")):
-            text = p.read_text(encoding="utf-8")
+            text = config.read_text(p)
             if no and no not in text and no not in p.name:
                 continue
-            meta_p = d / (p.stem + ".meta.json")
+            stem = p.stem
+            for suf in ("-report", "-output"):
+                if stem.endswith(suf):
+                    stem = stem[: -len(suf)]
+                    break
+            meta_p = d / (stem + ".meta.json")
             st = ""
             if meta_p.exists():
                 try:
-                    st = str(json.loads(meta_p.read_text(encoding="utf-8")).get("status") or "")
+                    st = str(json.loads(config.read_text(meta_p)).get("status") or "")
                 except Exception:
                     st = "元数据损坏"
             files.append({"name": p.name, "rel": p.relative_to(config.ROOT).as_posix(),
@@ -446,6 +525,151 @@ def rn_outputs(no: str = "") -> list:
         if files:
             out.append({"dir": d.name, "files": files})
     return out
+
+
+# ================= 04 项目文件：各角色工作区浏览器（按角色/任务筛选，可读文件才放行预览） =================
+_WS_BINARY_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".psd", ".ai",
+                  ".zip", ".rar", ".7z", ".gz", ".tar", ".exe", ".dll", ".so", ".pyc",
+                  ".db", ".sqlite", ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+                  ".mp3", ".mp4", ".wav", ".avi", ".mov", ".woff", ".woff2", ".ttf", ".otf",
+                  ".class", ".o", ".obj", ".bin", ".dat", ".wasm", ".jar"}
+_WS_SKIP_PARTS = {"node_modules", ".git", "__pycache__", ".dsh-tmp"}
+_WS_MAX_BYTES = 3 * 1024 * 1024        # 在线预览上限 3 MB
+
+
+def ws_files() -> list:
+    """扫描《工作区/<角色>/》文件 → 产物清单（供按 角色/任务 筛选）。
+
+    只收人读产物：md 交付物（-report / -output / -summary / 其它 .md）与普通文本；
+    .meta.json 是机器状态文件不进产物列表。同角色同名文件同时存在于当前与 已归档/ 时只留当前副本。"""
+    raw = []
+    ws = config.WORKSPACE_ROOT
+    if not ws.is_dir():
+        return []
+    for d in sorted(ws.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        for p in sorted(d.rglob("*")):
+            if not p.is_file() or any(seg in _WS_SKIP_PARTS for seg in p.relative_to(ws).parts):
+                continue
+            if p.suffix.lower() == ".json":            # meta.json = 元数据，不展示
+                continue
+            try:
+                st = p.stat()
+            except OSError:
+                continue
+            m = re.search(r"T-\d+", p.name)
+            rel = p.relative_to(config.ROOT).as_posix()
+            raw.append({"role": d.name, "name": p.name, "rel": rel,
+                        "ext": p.suffix.lower(), "task": m.group(0) if m else "",
+                        "archived": "已归档" in p.relative_to(d).parts,
+                        "size": st.st_size, "mtime": int(st.st_mtime)})
+    seen = {}
+    for f in raw:
+        key = (f["role"], f["name"])
+        cur = seen.get(key)
+        if cur is None or (cur["archived"] and not f["archived"]):
+            seen[key] = f
+    return sorted(seen.values(), key=lambda f: (f["role"], f["name"], f["rel"]))
+
+
+def rename_legacy_ws_files() -> list:
+    """历史旧命名 → 新命名格式（就地改名，含 已归档/）：
+       T-xxx-Sn.md        → T-xxx-Sn-report.md
+       T-xxx-工作汇总.md    → T-xxx-summary.md
+       已是新命名 / meta.json / 其它文件不动；目标已存在则跳过。"""
+    renamed = []
+    ws = config.WORKSPACE_ROOT
+    if not ws.is_dir():
+        return renamed
+    for p in sorted(ws.rglob("*")):
+        if not p.is_file():
+            continue
+        name = p.name
+        if not name.endswith(".md") or name.endswith(("-report.md", "-output.md", "-summary.md")):
+            continue
+        base = name[:-3]
+        new = None
+        if re.fullmatch(r"T-\d+-S\d+", base):
+            new = base + "-report.md"
+        elif re.fullmatch(r"T-\d+-工作汇总", base):
+            new = re.sub(r"-工作汇总$", "", base) + "-summary.md"
+        if not new:
+            continue
+        target = p.with_name(new)
+        if target.exists():
+            continue
+        try:
+            p.rename(target)
+            renamed.append("%s -> %s" % (p.relative_to(config.ROOT).as_posix(),
+                                         target.relative_to(config.ROOT).as_posix()))
+        except OSError:
+            pass
+    return renamed
+
+
+def token_rows() -> list:
+    """从各角色工作区 meta.json（当前 + 已归档）读 token 统计行（meta 里 tokensIn/tokensOut）。"""
+    rows = []
+    ws = config.WORKSPACE_ROOT
+    if not ws.is_dir():
+        return rows
+    for d in sorted(ws.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        for base in (d, d / "已归档"):
+            if not base.is_dir():
+                continue
+            for meta_p in sorted(base.glob("*.meta.json")):
+                try:
+                    m = json.loads(meta_p.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if m.get("tokensIn") is None and m.get("tokensOut") is None:
+                    continue
+                sub = str(m.get("subNo") or "")
+                if not sub:
+                    continue
+                rows.append({"sub": sub, "task": str(m.get("taskNo") or ""),
+                             "role": str(m.get("role") or ""), "roleName": str(m.get("roleName") or ""),
+                             "date": str(m.get("createdAt") or "")[:10],
+                             "tokensIn": int(m.get("tokensIn") or 0),
+                             "tokensOut": int(m.get("tokensOut") or 0),
+                             "archived": base.name == "已归档"})
+    seen = {}
+    for r in rows:
+        key = (r["task"], r["sub"])
+        cur = seen.get(key)
+        if cur is None or (cur["archived"] and not r["archived"]):
+            seen[key] = r
+    return sorted(seen.values(), key=lambda r: (r["task"], r["sub"]))
+
+
+def ws_read(rel: str) -> dict:
+    """读取《工作区/》文件内容供预览：md 原样返回（前端渲染）；其余可解码文本以 txt 预览；
+    二进制 / 不可读 / 过大一律不放行（只允许工作区根内，防路径逃逸）。"""
+    root = config.ROOT.resolve()
+    p = (root / rel).resolve()
+    if not str(p).startswith(str(root)) or not p.is_file():
+        raise ValueError("文件不存在或路径越界")
+    try:
+        size = p.stat().st_size
+    except OSError:
+        raise ValueError("文件不可读")
+    if size > _WS_MAX_BYTES:
+        raise ValueError("文件过大（超过 %d MB），不提供在线预览" % (_WS_MAX_BYTES // (1024 * 1024)))
+    data = p.read_bytes()
+    if p.suffix.lower() in _WS_BINARY_EXT or b"\x00" in data[:4096]:
+        raise ValueError("二进制 / 不可读文件，已禁止查看")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        try:
+            text = data.decode("gbk")
+        except UnicodeDecodeError:
+            raise ValueError("无法按 UTF-8 / GBK 解码的文本文件，已禁止查看")
+    return {"name": p.name, "kind": "md" if p.suffix.lower() == ".md" else "txt",
+            "text": text, "rel": rel}
 
 
 def task_output(no: str) -> dict:
@@ -457,7 +681,9 @@ def task_output(no: str) -> dict:
            "files": [], "log": ""}
     for d in _wb_role_dirs():
         for p in sorted(d.glob("*.md")) + sorted((d / "已归档").glob("*.md")):
-            text = p.read_text(encoding="utf-8")
+            if p.name.endswith("-summary.md"):
+                continue
+            text = config.read_text(p)
             if no in text or no in p.name:
                 idx = max(text.find(no), 0)
                 out["files"].append({"name": p.name,
@@ -466,8 +692,33 @@ def task_output(no: str) -> dict:
                                      "seg": text[max(0, idx - 120):idx + 420]})
     lg = config.LOG_FILE
     if lg.exists():
-        text = lg.read_text(encoding="utf-8")
+        text = config.read_text(lg)
         idx = text.rfind(no)
         if idx >= 0:
             out["log"] = text[max(0, idx - 400):idx + 900]
     return out
+
+
+def sub_output(sub_no: str) -> dict:
+    """单个子任务的产出全文（工作区或已归档下的 {sub_no}.md），供工作台点击子任务查看。"""
+    sub_no = (sub_no or "").strip()
+    if not sub_no:
+        return {}
+    for d in _wb_role_dirs():
+        for base in (d, d / "已归档"):
+            p = base / (sub_no + "-report.md")
+            if not p.exists():
+                p = base / (sub_no + ".md")
+            if not p.exists():
+                continue
+            meta = {}
+            meta_p = base / (sub_no + ".meta.json")
+            if meta_p.exists():
+                try:
+                    meta = json.loads(config.read_text(meta_p))
+                except Exception:
+                    meta = {}
+            return {"rel": p.relative_to(config.ROOT).as_posix(),
+                    "text": config.read_text(p),
+                    "meta": meta}
+    return {}

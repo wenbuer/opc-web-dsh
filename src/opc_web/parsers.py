@@ -15,7 +15,7 @@ SECTION_RE = re.compile(r"^##\s+")
 def _flush(cur, out):
     if cur is None:
         return
-    item = {"n": cur["n"], "title": cur["title"], "lines": cur["lines"]}
+    item = {"n": cur["n"], "title": cur["title"], "lines": cur["lines"], "kind": cur["kind"]}
     if cur["judged"]:                       # 已有实质批阅/已阅 → 归档区
         out["archive"].append(item)
     elif cur["kind"] == "工作":             # 例行进展（无批阅栏）→ 工作内容
@@ -51,8 +51,7 @@ def parse_piyuetai(text: str) -> dict:
                 val = jm.group(1).strip()
                 if val and "待填" not in val:
                     cur["judged"] = True             # 已批阅/已阅：有实质内容
-                else:
-                    cur["lines"].append(ln)          # 未批阅：保留“待填”占位行
+                cur["lines"].append(ln)              # 批阅行本身也保留 —— 决策归档要展示 裁决/意见
             elif ln.strip() and ln.strip() != "---":
                 cur["lines"].append(ln)              # 收集背景/R 建议/需要拍板/进展
     _flush(cur, out)

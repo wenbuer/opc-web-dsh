@@ -107,7 +107,8 @@ def decompose(task_no, task_text):
     if asks_r1(task_text):
         lead += "用户指定由 R1（枢纽·老板助理）牵头派发——R1 只拆解派发不直接执行，请忽略任务里的 R1 字样，直接按职责从下列业务角色选人："
     prompt = (lead + role_list +
-              "。请按职责匹配选人（不要只看角色名猜），拆解为最多 %d 个可并行子任务。"
+              "。按职能合理拆分：能由一个角色一次完成（如单点调研/资料检索）就拆 1 个，"
+              "只有确实需要多个职能并行或接力、单角色覆盖不了时才拆多个 —— 宁少勿多，总数不超过 %d 个。"
               "只输出派发单表格行，每行格式：| %s | 子任务描述 | R编号 | 期望产出 | 待派 |；"
               "示例：| %s | 设计 KeepTalk 首页 | R8 | 界面设计稿 | 待派 |。"
               "不要输出任何解释、提问或多余文字。任务：%s" % (max_subs, task_no, task_no, task_text))
@@ -193,22 +194,28 @@ def execute(task_no, task_text):
             store.set_subtask(sub_no, "执行中")
             store.open_execution(sub_no, task_no, s["role"])
             try:
-                text = runner.run_headless_sync(_flat(spec["prompt"]), EXEC_TIMEOUT)
+                text, usage = runner.run_headless_task(_flat(spec["prompt"]), EXEC_TIMEOUT)
             except Exception:
-                text = ""
+                text, usage = "", None
             if text:
-                with open(body_p, "a", encoding="utf-8") as fh:
-                    fh.write("\n\n## 执行产出（控制台自动执行 %s）\n\n%s\n" % (sub_no, text))
+                with open(body_p, "a", encoding="utf-8") as fh:          # 完成回报（唯一的子任务产出文件）
+                    fh.write("\n\n## 完成回报（控制台自动执行 %s）\n\n%s\n" % (sub_no, text))
                 try:
                     meta = json.loads(meta_p.read_text(encoding="utf-8"))
                     meta["status"] = "完成"
+                    if usage:
+                        # token 用量写入 meta.json（输入=含缓存读取的计费口径，另存拆分）
+                        meta["tokensIn"] = usage["inputTokens"] + usage["cacheReadTokens"]
+                        meta["tokensOut"] = usage["outputTokens"]
+                        meta["tokensCacheRead"] = usage["cacheReadTokens"]
+                        meta["tokensReasoning"] = usage["reasoningTokens"]
                     meta_p.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 except Exception:
                     pass
                 store.settle_execution(sub_no, "完成")
                 ok_cnt += 1
                 runner.emit({"type": "assistant/chunk",
-                             "data": {"text": "✔ %s（%s）执行完成，产出已写入：%s" % (sub_no, s["role"], spec["output"])}})
+                             "data": {"text": "✔ %s（%s）执行完成，产出回报已写入：%s（归档时改名 output）" % (sub_no, s["role"], spec["output"])}})
             else:
                 try:
                     with open(body_p, "a", encoding="utf-8") as fh:

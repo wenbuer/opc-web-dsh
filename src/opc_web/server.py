@@ -97,6 +97,26 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": True, "groups": scheduler.rn_outputs(qs.get("no", [""])[0])})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
+        elif url == "/api/ws-files":
+            try:
+                self._json({"ok": True, "files": scheduler.ws_files()})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 500)
+        elif url == "/api/tokens":
+            try:
+                self._json({"ok": True, "rows": scheduler.token_rows()})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 500)
+        elif url == "/api/ws-file":
+            try:
+                qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+                rel = unquote(qs.get("rel", [""])[0]).strip()
+                if not rel:
+                    self._json({"ok": False, "msg": "缺少文件路径"}, 400)
+                    return
+                self._json({"ok": True, **scheduler.ws_read(rel)})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 400)
         elif url == "/api/plan-rows":
             try:
                 self._json({"ok": True, "rows": store.subtasks()})
@@ -112,6 +132,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": True, **scheduler.task_output(no)})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
+        elif url == "/api/sub-output":
+            try:
+                qs = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+                no = unquote(qs.get("no", [""])[0]).strip()
+                if not no:
+                    self._json({"ok": False, "msg": "缺少子任务编号 no"}, 400)
+                    return
+                res = scheduler.sub_output(no)
+                if not res:
+                    self._json({"ok": False, "msg": "未找到子任务产出 " + no}, 404)
+                    return
+                self._json({"ok": True, "no": no, **res})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/scheduler":
             self._json({"ok": True, "state": scheduler.SCHED_STATE})
         elif url == "/api/roles":
@@ -123,7 +157,7 @@ class Handler(BaseHTTPRequestHandler):
             if not p.exists():
                 self._json({"ok": False, "msg": "角色不存在"}, 404)
                 return
-            self._json({"ok": True, "no": no, "card": p.read_text(encoding="utf-8")})
+            self._json({"ok": True, "no": no, "card": config.read_text(p)})
         elif url == "/api/projects":
             self._json({"ok": True, "projects": config.projects(),
                         "active": config.active_project(), "seedRoles": config.settings_info()["seedRoles"]})
@@ -407,7 +441,19 @@ class Handler(BaseHTTPRequestHandler):
             if not item:
                 raise ValueError("缺少待决编号")
             new_line = review.write_piyue(item, judge, opinion)
-            self._json({"ok": True, "line": new_line, "item": item})
+            # R0 采纳（批准）→ R1 自动在任务队列新建执行任务（等同在 工作台下达），
+            # 并在该待决条目记录 R1 执行状态；驳回/修改不建新任务。
+            extra = {}
+            if review.judge_verb(judge) == "批准":
+                try:
+                    task_text = "执行 R0 决策（批阅台 待决 #%s）：%s" % (item, opinion or "按批阅意见执行")
+                    no = store.add_task(task_text, "R1 判断")
+                    review.append_r1_exec(item, "已建任务 %s，待 R1 派发执行" % no)
+                    scheduler.scan_once()   # 立即生成 R1 拆解指令（与下达任务同路径）
+                    extra = {"task": no}
+                except Exception:
+                    extra = {"task": None}
+            self._json({"ok": True, "line": new_line, "item": item, **extra})
         except Exception as e:
             self._json({"ok": False, "msg": str(e)}, 400)
 

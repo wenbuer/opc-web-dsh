@@ -7,6 +7,11 @@ from . import config, knowledge
 from .parsers import HEAD_RE, JUDGE_RE, SECTION_RE
 
 
+def judge_verb(judge: str) -> str:
+    """判词规范化：批准 / 驳回 / 修改（供服务端判断是否创建执行任务）。"""
+    return _verb_of(judge)
+
+
 def _verb_of(judge: str) -> str:
     """从批阅判断文本提取动词（批准 / 驳回 / 修改，md 不落表情符）。"""
     if "驳回" in judge:
@@ -38,6 +43,33 @@ def write_piyue(item: str, judge: str, opinion: str) -> str:
             break
     else:
         raise ValueError(f"待决 #{item} 缺少「R0 批阅」栏")
+    (config.ROOT / rel).write_text("\n".join(lines), encoding="utf-8")
+    return new_line
+
+
+def append_r1_exec(item: str, text: str) -> str:
+    """向 待决 #item 段尾追加（已有则替换）「R1 执行」行，供归档时展示 R1 是否执行。"""
+    rel = config.PIYUETAI_REL
+    lines = knowledge.read_md(rel).split("\n")
+    target = None
+    for i, ln in enumerate(lines):
+        if HEAD_RE.match(ln) and re.match(rf"^###\s+待决\s+{re.escape(item)}\s*[｜|]", ln):
+            target = i
+            break
+    if target is None:
+        raise ValueError(f"未找到 待决 #{item}")
+    end = len(lines)
+    for j in range(target + 1, len(lines)):
+        if HEAD_RE.match(lines[j]) or lines[j].startswith("### 工作") or SECTION_RE.match(lines[j]):
+            end = j
+            break
+    new_line = "- **R1 执行**：" + text
+    for k in range(target + 1, end):
+        if re.match(r"^\s*-\s*\*\*R1 执行\*\*\s*[:：]", lines[k]):
+            lines[k] = new_line
+            break
+    else:
+        lines.insert(end, new_line)
     (config.ROOT / rel).write_text("\n".join(lines), encoding="utf-8")
     return new_line
 

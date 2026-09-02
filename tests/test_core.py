@@ -106,10 +106,10 @@ class TestParsers(_TmpKB):
         (config.BATCH_ROOT / "批阅台.md").write_text(
             "## 待决\n| 编号 | 待决事项 | 提出者 | 日期 | R0 批阅 |\n|---|---|---|---|---|\n"
             "### 待决 20｜写批阅测试\n- **R0 批阅**：待填\n", encoding="utf-8")
-        line = review.write_piyue("20", "✅", "同意试点")
+        # 判词为纯文字（批准 / 驳回 / 修改，UI 不再发表情符），md 行只落规范格式
+        line = review.write_piyue("20", "批准", "同意试点")
+        self.assertRegex(line, r"^- \*\*R0 批阅\*\*：\d{4}-\d{2}-\d{2}：批准。意见：同意试点$")
         self.assertNotIn("✅", line)          # md 不落表情符
-        self.assertIn("批准", line)
-        self.assertIn("同意试点", line)
         text = knowledge.read_md(config.PIYUETAI_REL)
         self.assertNotIn("待填", text)
         self.assertIn("同意试点", text)

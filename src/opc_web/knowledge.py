@@ -10,7 +10,7 @@ def read_md(rel: str) -> str:
     p = (config.ROOT / rel).resolve()
     if not str(p).startswith(str(config.ROOT.resolve())) or not p.is_file() or p.suffix != ".md":
         raise ValueError("非根目录范 md 文件")
-    return p.read_text(encoding="utf-8")
+    return config.read_text(p)
 
 
 def latest_daily() -> list:
@@ -39,7 +39,7 @@ def kb_entries() -> list:
         if "legacy" in p.parts or "归档" in p.parts or "archive" in p.parts:
             continue
         try:
-            t = p.read_text(encoding="utf-8")
+            t = config.read_text(p)
         except Exception:
             continue
         body_lines = [ln.strip() for ln in t.split("\n") if ln.strip() and not ln.strip().startswith("#")]

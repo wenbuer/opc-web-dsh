@@ -25,6 +25,10 @@ def agent_prompt(no: str, task_text: str, out_rel: str = "", meta_rel: str = "")
     tail = ""
     if out_rel:
         tail = ("\n产出文件：%s —— 边做边追加进度，可写多次（有输出即视为存活）。"
+                "\n回报请在最终写入时用固定小节（便于 R0 决策）："
+                "\n## 结论 —— 一两句话说清结果；"
+                "\n## 依据与要点 —— 关键信息 / 依据 / 过程；"
+                "\n## 需要 R0 拍板 —— 仅在确有需要 R0 拍板的事项时写这一节，且必须把每个决策点写完整：现状背景 → 可选方案 → 你的建议（不要只写一句“请 R0 拍板”，也不要写“任务含决策信号 / 请 R0 裁决 / 驳回将重新派发”这类流程空话——R0 要读到的是一句话能看懂的具体决策点）；没有需要拍板的事项就整节不写。"
                 "\n完成后：把 %s 里的 status 改为 完成 / 部分 / 阻塞（只改这一个字段，其余勿动）。"
                 % (out_rel, meta_rel))
     return (head + "\n\n【任务】" + task_text +
@@ -40,7 +44,7 @@ def subtask_spec(no: str, task_text: str, expect: str = "", sub_no: str = "") ->
     if not sub_no:
         raise ValueError("subtask_spec 需要子任务编号：产出按编号命名，共用固定名会让同角色的多任务互相覆盖")
     d = "%s/%s" % (config.WORKSPACE_REL, config.sanitize_dir(config.role_name(no)))
-    out_rel = "%s/%s.md" % (d, sub_no)
+    out_rel = "%s/%s-report.md" % (d, sub_no)      # 完成回报（人读交付物）
     meta_rel = "%s/%s.meta.json" % (d, sub_no)
     return {
         "role": no,

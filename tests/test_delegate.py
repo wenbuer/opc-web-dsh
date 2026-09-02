@@ -45,7 +45,7 @@ class TestSubtaskSpec(unittest.TestCase):
         self.assertEqual(spec["role"], "R2")
         self.assertEqual(spec["roleName"], "需求研究员")
         self.assertNotIn("preset", spec)
-        self.assertEqual(spec["output"], "工作区/需求研究员/T-007-S1.md")
+        self.assertEqual(spec["output"], "工作区/需求研究员/T-007-S1-report.md")
         self.assertEqual(spec["meta"], "工作区/需求研究员/T-007-S1.meta.json")
         self.assertIn("挖掘 5 条新用户原声", spec["prompt"])
 

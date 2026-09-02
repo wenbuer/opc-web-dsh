@@ -6,6 +6,7 @@ JSONL——两条通道都从未产生过数据（《批阅台/运行监控/》�
 均不存在），UI 入口随「agent 执行监听」面板一并下线。本模块现在只做两件事：
 接收 chain 写入的阶段事件，以及为任务拆解同步直跑一次 dsh headless。
 """
+import json
 import os
 import shutil
 import subprocess
@@ -108,3 +109,91 @@ def run_headless_sync(task_text: str, timeout: float = 600) -> str:
     except Exception:
         pass
     return "".join(out).strip()
+
+
+def _decode_stdout(data: bytes) -> str:
+    """dsh 在 Windows 下把 --events-jsonl 写成了 UTF-16LE（带 BOM）；按 BOM 解，否则 UTF-8。"""
+    if data[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return data.decode("utf-16-le" if data[:2] == b"\xff\xfe" else "utf-16-be", errors="replace")
+    return data.decode("utf-8", errors="replace")
+
+
+def run_headless_task(task_text: str, timeout: float = 600):
+    """headless + --events-jsonl：返回 (最终文本, 用量 dict|None)。
+
+    用量来自事件流 assistant/chunk 的 data.usage（inputTokens/outputTokens 等），
+    供 chain 写回子任务 meta.json；最终文本取 run/end.text（无则拼 chunk）。"""
+    exe = shutil.which("dsh") or "dsh"
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    si = subprocess.STARTUPINFO() if hasattr(subprocess, "STARTUPINFO") else None
+    if si is not None:
+        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = 0
+    try:
+        p = subprocess.Popen([exe, "--profile", "headless", task_text, "--events-jsonl"],
+                             cwd=str(config.ROOT), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             creationflags=flags, startupinfo=si, env=_child_env())
+    except Exception:
+        return "", None
+    chunks = []
+
+    def _drain_bin():
+        try:
+            for blk in iter(lambda: p.stdout.read(65536), b""):
+                chunks.append(blk)
+        except Exception:
+            pass
+
+    threading.Thread(target=_drain_bin, daemon=True).start()
+    t0 = time.monotonic()
+    alive = False
+    while True:
+        if p.poll() is not None:
+            break
+        if chunks:
+            alive = True
+        if alive:
+            try:
+                p.wait()
+            except Exception:
+                pass
+            break
+        if time.monotonic() - t0 > timeout:
+            subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"], capture_output=True, text=True)
+            try:
+                p.wait(timeout=3)
+            except Exception:
+                try:
+                    p.kill()
+                except Exception:
+                    pass
+            break
+        time.sleep(0.5)
+    try:
+        p.stdout.close()
+    except Exception:
+        pass
+    text = _decode_stdout(b"".join(chunks))
+    usage = None
+    final = ""
+    for ln in text.splitlines():
+        line = ln.strip()
+        if not line:
+            continue
+        try:
+            ev = json.loads(line)
+        except Exception:
+            continue
+        d = ev.get("data") or {}
+        if ev.get("type") == "assistant/chunk" and isinstance(d.get("usage"), dict):
+            u = d["usage"]
+            if u.get("inputTokens") is not None or u.get("outputTokens") is not None:
+                usage = {"inputTokens": int(u.get("inputTokens") or 0),
+                         "outputTokens": int(u.get("outputTokens") or 0),
+                         "cacheReadTokens": int(u.get("cacheReadTokens") or 0),
+                         "reasoningTokens": int(u.get("reasoningTokens") or 0)}
+        elif ev.get("type") == "run/end" and ev.get("text"):
+            final = ev["text"]
+    if not final:
+        final = text
+    return final.strip(), usage

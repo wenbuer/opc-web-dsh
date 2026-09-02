@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OPC 指挥中心 · 作战面板</title>
-<link rel="stylesheet" href="/static/main.css?v=20260303a">
+<link rel="stylesheet" href="/static/main.css?v=20260829u">
 </head>
 <body>
 <div class="shell">
@@ -25,9 +25,10 @@
     <button class="tab active" data-view="home"><span>01</span>作战面板</button>
     <button class="tab" data-view="piyue"><span>02</span>批阅台</button>
     <button class="tab" data-view="workbench"><span>03</span>工作台</button>
-    <button class="tab" data-view="kb"><span>04</span>知识库</button>
-    <button class="tab" data-view="daily"><span>05</span>每日简报</button>
-    <button class="tab" data-view="settings"><span>06</span>设置</button>
+    <button class="tab" data-view="wsfiles"><span>04</span>项目文件</button>
+    <button class="tab" data-view="kb"><span>05</span>知识库</button>
+    <button class="tab" data-view="daily"><span>06</span>每日简报</button>
+    <button class="tab" data-view="settings"><span>07</span>设置</button>
   </nav>
 
   <main>
@@ -90,7 +91,7 @@
         </aside>
         <div class="piyue-main">
           <div id="pendingDetail" class="dossier">
-            <div class="placeholder">← 从左侧选取一份待裁决文件，此处展开【背景 / R 建议 / 需要 R0 拍板什么】</div>
+            <div class="placeholder">← 从左侧选取 待裁决 / 工作 文件：决策项只显示 项目整体进展 · 具体要拍板什么 · R1 建议</div>
           </div>
           <div id="piyueForm" class="verdict-slip" hidden>
             <div class="slip-lab">裁决签（R0 盖章生效）</div>
@@ -130,27 +131,51 @@
           <button id="btnOneClick" class="btn-gold">▶ 下达</button>
           <button id="btnToggleSched" class="btn-gold" title="暂停 / 恢复自动执行链">⏸ 暂停</button>
         </div>
-        <div class="launch-state"><span id="dqState" class="dq-state">调度空闲 —— 输入任务后点「▶ 下达」</span></div>
-        <div class="wb-cols">
+        <div class="wb-cols" id="wbCols">
           <div class="wb-col wb-left">
             <div class="wb-col-head">任务列表</div>
             <div id="dqQueue" class="dq-table"><div class="placeholder">排队中 —— 在上方下达第一个任务</div></div>
           </div>
-          <div class="wb-col">
+          <div class="wb-col wb-mid">
             <div class="wb-col-head">子任务看板</div>
             <div class="board-bar">
               <input id="boardSearch" class="board-search" placeholder="搜索编号 / 子任务 / 角色…" />
               <span id="boardStat" class="board-stat">—</span>
             </div>
+            <!-- 当前任务（下达内容原文）：紧跟搜索栏下方，点任务行/看板卡片后出现 -->
+            <div id="curTask" class="cur-task" hidden>
+              <span id="curTaskNo" class="ct-no"></span>
+              <span id="curTaskText" class="ct-text"></span>
+            </div>
             <div id="board" class="board"><div class="placeholder">暂无子任务 —— 下达任务后 R1 拆解即出现</div></div>
           </div>
-          <div class="wb-col">
+          <div class="wb-col wb-right">
             <div class="wb-col-head">任务详情</div>
             <div id="actPanel" class="act-panel"><div class="placeholder">← 点任务行或看板卡片，这里显示执行角色</div></div>
             <div id="taskOut" class="task-out"><div class="placeholder">← 点任务行或看板卡片，这里聚合执行历史、回报、产物与调度日志</div></div>
             <div class="live-head">实时事件</div>
             <div id="runLog" class="run-log"><div class="placeholder">空闲 —— 下达任务后自动滚动 R1 拆解与派发事件</div></div>
           </div>
+        </div>
+        <div class="launch-state wb-footer"><span id="dqState" class="dq-state">调度空闲 —— 输入任务后点「▶ 下达」</span></div>
+      </div>
+    </section>
+
+    <!-- ===== 项目文件：各角色工作区（按角色 / 任务筛选；md 渲染、其他文本以 txt 查看，不可读不放行） ===== -->
+    <section id="view-wsfiles" class="view">
+      <div class="ws-topbar"><span class="kb-ico">▤</span>项目文件 · 角色工作区</div>
+      <div class="ws-layout">
+        <aside class="ws-side">
+          <div class="ws-filters">
+            <select id="wsRoleSel" class="ws-sel" title="按角色筛选"><option value="">全部角色</option></select>
+            <select id="wsTaskSel" class="ws-sel" title="按任务筛选"><option value="">全部任务</option></select>
+            <button id="wsRefresh" class="mini" title="刷新文件清单">↻</button>
+          </div>
+          <div id="wsList" class="ws-list"><div class="placeholder">加载文件清单…</div></div>
+        </aside>
+        <div class="ws-main">
+          <div id="wsTitle" class="file-title">← 左侧选择文件：md 渲染查看 · 其他文本以 txt 查看 · 不可读文件不提供查看</div>
+          <div id="wsBody" class="ws-body"><div class="placeholder">选择文件后此处预览</div></div>
         </div>
       </div>
     </section>
@@ -163,6 +188,7 @@
           <button class="snav-item" data-snav="dir">① 项目选择</button>
           <button class="snav-item" data-snav="model">② 模型接入</button>
           <button class="snav-item" data-snav="schedule">③ 定时任务</button>
+          <button class="snav-item" data-snav="tokens">④ Token 统计</button>
         </aside>
         <div class="settings-main">
           <div class="snav-pane active" data-pane="dir">
@@ -243,7 +269,14 @@
                 </div>
               </div>
             </div>
-          </div>        </div>
+          </div>
+          <div class="snav-pane" data-pane="tokens">
+            <div class="set-head">任务 Token 统计 <em>输入（含缓存读取） / 输出 · 来自子任务 meta.json</em></div>
+            <div class="tok-sum" id="tokSum"></div>
+            <div class="tok-chart" id="tokChart"><div class="placeholder">加载中…</div></div>
+            <div class="set-note"><b>口径</b> 每个子任务执行时把 dsh headless 用量写进 <code>T-xxx-Sn.meta.json</code>（tokensIn = 输入 + 缓存读取，tokensOut = 输出）。<br>仅统计改版后执行的任务；旧任务没有字段不会计入。</div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -292,6 +325,6 @@
     </div>
   </div>
 </div>
-<script src="/static/main.js?v=20260303a"></script>
+<script src="/static/main.js?v=20260829u"></script>
 </body>
 </html>
