@@ -5,44 +5,61 @@ import re
 from . import config, knowledge, store
 
 # ---------- 批阅台 ----------
+# 条目分两类：### 工作 N（例行进展，进「工作内容查看」）｜### 待决 N（R1 认为需 R0 拍板，进「决策裁决」）
 HEAD_RE = re.compile(r"^###\s+待决\s+(\d+)\s*[｜|]\s*(.+)$")
+HEAD_WORK_RE = re.compile(r"^###\s+工作\s+(\d+)\s*[｜|]\s*(.+)$")
 JUDGE_RE = re.compile(r"^\s*-\s*\*\*[^：]*批阅[^：]*\*\*[:：]\s*(.*)$")
 SECTION_RE = re.compile(r"^##\s+")
 
 
+def _flush(cur, out):
+    if cur is None:
+        return
+    item = {"n": cur["n"], "title": cur["title"], "lines": cur["lines"]}
+    if cur["judged"]:                       # 已有实质批阅/已阅 → 归档区
+        out["archive"].append(item)
+    elif cur["kind"] == "工作":             # 例行进展（无批阅栏）→ 工作内容
+        out["work"].append(item)
+    else:
+        out["pending"].append(item)         # 待决未裁决 → 决策裁决
+
+
 def parse_piyuetai(text: str) -> dict:
-    """解析《批阅台/批阅台.md》 → {pending:[{n,title,lines}], archive:[{n,title}]}。"""
+    """解析《批阅台/批阅台.md》 → {work:[例行进展], pending:[待决策], archive:[已批阅归档]}。"""
     lines = text.split("\n")
-    pending, archive, cur = [], [], None
+    out = {"work": [], "pending": [], "archive": []}
+    cur = None
     for ln in lines:
-        if SECTION_RE.match(ln):                     # 章节边界（待决区/归档区/流程区）
-            if cur is not None:
-                (archive if cur["judged"] else pending).append({k: cur[k] for k in ("n", "title", "lines")})
+        if SECTION_RE.match(ln):                     # 章节边界
+            _flush(cur, out)
             cur = None
             continue
         m = HEAD_RE.match(ln)
-        if m:
-            if cur is not None:
-                (archive if cur["judged"] else pending).append({k: cur[k] for k in ("n", "title", "lines")})
-            cur = {"n": int(m.group(1)), "title": m.group(2).strip(), "judged": False, "lines": []}
+        wm = HEAD_WORK_RE.match(ln) if not m else None
+        if m or wm:
+            _flush(cur, out)
+            cur = {"n": int((m or wm).group(1)), "title": (m or wm).group(2).strip(),
+                   "judged": False, "lines": [], "kind": "待决" if m else "工作"}
             continue
         if cur is not None:
+            if ln.startswith("  ") and cur["lines"]:
+                # 两空格缩进 = 上一字段值的续行（md 多行字段）：并入上一行，保留换行
+                cur["lines"][-1] += "\n" + ln.strip()
+                continue
             jm = JUDGE_RE.match(ln)
             if jm:
                 val = jm.group(1).strip()
                 if val and "待填" not in val:
-                    cur["judged"] = True             # 已批阅：有实质内容（✅/❌/✏️ + 日期）
+                    cur["judged"] = True             # 已批阅/已阅：有实质内容
                 else:
                     cur["lines"].append(ln)          # 未批阅：保留“待填”占位行
             elif ln.strip() and ln.strip() != "---":
-                cur["lines"].append(ln)              # 收集背景/R 建议/需要拍板
-    if cur is not None:
-        (archive if cur["judged"] else pending).append({k: cur[k] for k in ("n", "title", "lines")})
-    for it in pending:
-        it.pop("judged", None)
-    for it in archive:
-        it.pop("judged", None)
-    return {"pending": pending, "archive": archive}
+                cur["lines"].append(ln)              # 收集背景/R 建议/需要拍板/进展
+    _flush(cur, out)
+    for bucket in (out["work"], out["pending"], out["archive"]):
+        for it in bucket:
+            it.pop("judged", None)
+    return out
 
 
 # ---------- 角色架构 ----------

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OPC 指挥中心 · 作战面板</title>
-<link rel="stylesheet" href="/static/main.css?v=20260302d">
+<link rel="stylesheet" href="/static/main.css?v=20260303a">
 </head>
 <body>
 <div class="shell">
@@ -61,7 +61,7 @@
           <div class="panel-head">角色工作区 <em id="roleDetailTitle">选择左侧角色卡片查看</em></div>
           <div id="roleDetail" class="role-detail">
             <div class="role-pane card">
-              <div class="pane-title">角色卡 <em id="roleCardTitle">未选择</em> <button id="btnEditRole" class="btn-gold small" style="display:none">✎ 编辑角色</button></div>
+              <div class="pane-title">角色卡 <em id="roleCardTitle">未选择</em> <button id="btnEditRole" class="btn-gold small" style="display:none">编辑角色</button></div>
               <div id="roleCardBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色角色卡全文</div></div>
             </div>
             <div class="role-pane files">
@@ -81,7 +81,9 @@
     <section id="view-piyue" class="view">
       <div class="piyue-layout">
         <aside class="shelf">
-          <div class="shelf-head">待裁决文件 <em id="pendingCount"></em></div>
+          <div class="shelf-head">工作内容 <em id="workCount"></em><span class="shelf-tip">例行进展 · 查看即可，看完可归档</span></div>
+          <div id="workList" class="card-list"></div>
+          <div class="shelf-head">决策裁决 <em id="pendingCount"></em><span class="shelf-tip">R1 认为需 R0 拍板</span></div>
           <div id="pendingList" class="card-list"></div>
           <div class="shelf-head dim">已批阅归档</div>
           <div id="archiveList" class="arch-list"></div>
@@ -94,9 +96,9 @@
             <div class="slip-lab">裁决签（R0 盖章生效）</div>
             <textarea id="opinionInput" placeholder="批阅意见（可留空，如：预算上限 1000 元、启动日期、附加条件）"></textarea>
             <div class="seal-row">
-              <button class="seal approve" data-judge="✅ 批准">批准</button>
-              <button class="seal ink" data-judge="❌ 驳回">驳回</button>
-              <button class="seal amend" data-judge="✏️ 修改">修改</button>
+              <button class="seal approve" data-judge="批准">批准</button>
+              <button class="seal ink" data-judge="驳回">驳回</button>
+              <button class="seal amend" data-judge="修改">修改</button>
             </div>
             <p id="piyueStatus" class="form-status"></p>
           </div>
@@ -122,17 +124,13 @@
     <!-- ===== 工作台：任务上传下达 / 执行角色 ===== -->
     <section id="view-workbench" class="view">
       <div class="dispatch-panel">
-        <div class="panel-head pane-ctl">任务工作台
-          <span class="sched-ctl">
-            <span id="schedStat" class="dq-state"></span>
-            <button id="btnToggleSched" class="btn-gold small">⏸ 暂停</button>
-          </span>
-        </div>
+        <div class="panel-head">任务工作台</div>
         <div class="launch-row">
-          <input id="dqInput" placeholder="下达任务，比如：R8 继续迭代首页时间线交互" />
-          <button id="btnOneClick" class="btn-gold launch-btn">▶ 下达</button>
+          <input id="dqInput" placeholder="下达任务，比如：R8 以产品设计师身份做一版界面设计" />
+          <button id="btnOneClick" class="btn-gold">▶ 下达</button>
+          <button id="btnToggleSched" class="btn-gold" title="暂停 / 恢复自动执行链">⏸ 暂停</button>
         </div>
-        <div class="launch-state"><span id="dqState" class="dq-state">等待下达 —— 输入任务后点「▶ 下达」，R1 自动拆解并派发给各角色执行</span></div>
+        <div class="launch-state"><span id="dqState" class="dq-state">调度空闲 —— 输入任务后点「▶ 下达」</span></div>
         <div class="wb-cols">
           <div class="wb-col wb-left">
             <div class="wb-col-head">任务列表</div>
@@ -150,7 +148,7 @@
             <div class="wb-col-head">任务详情</div>
             <div id="actPanel" class="act-panel"><div class="placeholder">← 点任务行或看板卡片，这里显示执行角色</div></div>
             <div id="taskOut" class="task-out"><div class="placeholder">← 点任务行或看板卡片，这里聚合执行历史、回报、产物与调度日志</div></div>
-            <div class="live-head">⚡ 实时事件</div>
+            <div class="live-head">实时事件</div>
             <div id="runLog" class="run-log"><div class="placeholder">空闲 —— 下达任务后自动滚动 R1 拆解与派发事件</div></div>
           </div>
         </div>
@@ -161,18 +159,18 @@
     <section id="view-settings" class="view">
       <div class="settings-layout">
         <aside class="settings-nav">
-          <div class="settings-nav-head">⚙ 设置</div>
-          <button class="snav-item" data-snav="dir">① 项目</button>
+          <div class="settings-nav-head">设置</div>
+          <button class="snav-item" data-snav="dir">① 项目选择</button>
           <button class="snav-item" data-snav="model">② 模型接入</button>
           <button class="snav-item" data-snav="schedule">③ 定时任务</button>
         </aside>
         <div class="settings-main">
           <div class="snav-pane active" data-pane="dir">
-            <div class="set-head">项目</div>
+            <div class="set-head">项目选择</div>
             <div class="proj-row">
               <input id="projName" class="proj-name" placeholder="项目名，如 KeepTalk">
               <input id="projRoot" class="proj-root" placeholder="项目目录（绝对路径，如 D:/opc/keeptalk）">
-              <button id="btnBrowseDir" class="mini" title="打开目录选择器：浏览本机目录并填入">📁 选择</button>
+              <button id="btnBrowseDir" class="mini" title="打开目录选择器：浏览本机目录并填入">选择</button>
               <button id="btnProjAdd" class="mini">＋ 新建项目</button>
               <span id="projMsg" class="set-msg"></span>
             </div>
@@ -207,8 +205,8 @@
               </label>
             </div>
             <div class="mapi-row mapi-actions">
-              <button id="btnSaveModelApi">💾 保存模型 API 配置</button>
-              <button id="btnTestModelApi">🔌 测试连通（真实请求 1 token）</button>
+              <button id="btnSaveModelApi">保存模型 API 配置</button>
+              <button id="btnTestModelApi">测试连通（真实请求 1 token）</button>
               <span id="mApiMsg" class="set-msg"></span>
             </div>
             <div class="set-note" id="mApiNote"></div>
@@ -250,7 +248,7 @@
     </section>
   </main>
 
-  <!-- ===== 新增/编辑角色弹窗（作战面板：完成角色新增与角色卡 ✎ 编辑，自动编号 R10+） ===== -->
+  <!-- ===== 新增/编辑角色弹窗（作战面板：完成角色新增与角色卡编辑，自动编号 R10+） ===== -->
   <div class="modal-mask" id="roleModal" hidden>
     <div class="modal-box">
       <div class="modal-head"><span id="roleModalTitle">＋ 新增角色</span><em id="roleModalHint">自动编号 R10+ · 与「设置 → 角色创建」同一新增流程：角色卡 + 工作区《名称/》</em><button class="modal-x" id="btnModalClose" title="关闭（Esc）">×</button></div>
@@ -267,10 +265,10 @@
     </div>
   </div>
 
-  <!-- ===== 删除角色确认弹窗（作战面板角色卡 🗑：二次确认后才调 /api/roles/delete） ===== -->
+  <!-- ===== 删除角色确认弹窗（作战面板角色卡删除：二次确认后才调 /api/roles/delete） ===== -->
   <div class="modal-mask" id="delRoleModal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><span>⚠ 确认删除角色</span><em>二次确认 · 删除将移除角色卡 / 工作区 / 架构登记（不可恢复）</em><button class="modal-x" id="btnDelClose" title="取消（Esc）">×</button></div>
+      <div class="modal-head"><span>确认删除角色</span><em>二次确认 · 删除将移除角色卡 / 工作区 / 架构登记（不可恢复）</em><button class="modal-x" id="btnDelClose" title="取消（Esc）">×</button></div>
       <div class="del-role-info" id="delRoleInfo"></div>
       <div class="modal-foot">
         <button id="btnDelCancel">取消</button>
@@ -283,17 +281,17 @@
   <!-- ===== 目录选择器（设置 → 项目：浏览本机目录并填入） ===== -->
   <div class="modal-mask" id="dirModal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><span>📁 选择项目目录</span><button class="modal-x" id="btnDirClose" title="关闭（Esc）">×</button></div>
+      <div class="modal-head"><span>选择项目目录</span><button class="modal-x" id="btnDirClose" title="关闭（Esc）">×</button></div>
       <div class="dir-current" id="dirCurrent"></div>
       <div class="dir-list" id="dirList"></div>
       <div class="modal-foot">
-        <button id="btnDirUp">⬆ 上级目录</button>
-        <button id="btnDirPick">✅ 选此目录</button>
+        <button id="btnDirUp">↑ 上级目录</button>
+        <button id="btnDirPick">选此目录</button>
         <span id="dirMsg" class="set-msg"></span>
       </div>
     </div>
   </div>
 </div>
-<script src="/static/main.js?v=20260302d"></script>
+<script src="/static/main.js?v=20260303a"></script>
 </body>
 </html>

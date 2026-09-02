@@ -172,6 +172,259 @@ def archive_once():
         pass
 
 
+def _piyue_next_no(text: str) -> int:
+    # 工作条目与待决条目共用递增编号，避免跨区重号
+    nums = [int(m) for m in re.findall(r"^###\s+(?:待决|工作)\s+(\d+)", text, re.M)]
+    return (max(nums) + 1) if nums else 1
+
+
+_DECIDE_WORDS = ("拍板", "决策", "决定", "取舍", "是否", "要不要", "可不可以", "选哪个", "方案选择",
+                "定价", "预算", "批准", "驳回", "上线", "启动", "方向", "首包", "双包", "放大", "止损",
+                "请 R0", "需要 R0", "请R0", "需要R0")
+
+
+def _field_lines(key: str, value: str) -> list:
+    """条目字段 → 行列表：首行 `- **key**：首段`，其余段以两空格缩进续行（md 人读清晰、解析可还原换行）。"""
+    parts = str(value or "").split("\n")
+    first = parts[0].strip()
+    out = ["- **" + key + "**：" + first] if first else ["- **" + key + "**："]
+    for ln in parts[1:]:
+        s = ln.strip()
+        if s:
+            out.append("  " + s)
+    return out
+
+
+def _needs_decision(task_text: str, brief: str) -> bool:
+    """启发式：任务/回报含明确决策信号（拍板/定价/是否…/请 R0 等）→ 进「决策裁决」，否则进「工作内容」。"""
+    hay = "%s %s" % ((task_text or ""), (brief or "")[:2000])
+    return any(w in hay for w in _DECIDE_WORDS)
+
+
+def _tree_text(root, max_depth=3):
+    """文本目录树（剔除运行数据/依赖目录），用于代码类工作汇总展示当前目录结构。"""
+    skip = {".git", "node_modules", "__pycache__", ".dsh-tmp", "已归档"}
+    out = []
+    def walk(p, pre, dep):
+        if dep > max_depth:
+            return
+        try:
+            ents = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower()))
+        except OSError:
+            return
+        files = [e for e in ents if not e.is_dir() and e.name not in skip and not e.name.endswith((".pyc", ".db", ".db-journal"))]
+        dirs = [e for e in ents if e.is_dir() and e.name not in skip]
+        for i, d in enumerate(dirs):
+            last = (i == len(dirs) - 1) and not files
+            out.append(pre + ("└── " if last else "├── ") + d.name + "/")
+            walk(d, pre + ("    " if last else "│   "), dep + 1)
+        for j, f in enumerate(files):
+            out.append(pre + ("└── " if j == len(files) - 1 else "├── ") + f.name)
+    root = config.ROOT
+    out.append(root.name + "/")
+    walk(root, "", 1)
+    return "\n".join(out[:160])
+
+
+_TRIPLE_BT = chr(96) * 3      # ```（源码避免反引号字面）
+_CODE_HINT = (".py", ".js", ".ts", ".jsx", ".tsx", ".css", ".html", ".htm", ".vue", ".sql", ".json")
+
+
+def _looks_code(text: str, src: str) -> bool:
+    """启发式：产出正文含代码块/程序特征，或产出文件为代码文件 → 代码类工作。"""
+    if src and src.lower().endswith(_CODE_HINT):
+        return True
+    if _TRIPLE_BT in (text or ""):
+        return True
+    head = (text or "")[:3000]
+    for pat in ("def ", "function ", "class ", "import ", "const ", "let ", "interface ", "CREATE TABLE", "<!DOCTYPE", "#include"):
+        if pat in head:
+            return True
+    return False
+
+
+def _digest_body(text: str, limit: int = 600) -> str:
+    """抽取产出要点：去掉控制台预置模板头，保留原始 md（标题/加粗/换行），超长截断。"""
+    t = (text or "").strip()
+    idx = t.find("\n---\n")                 # 预置模板头以 --- 分隔线结束
+    if 0 < idx < 1200:
+        t = t[idx + 6:].lstrip("\n")
+    t = t.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not t:
+        return ""
+    t = re.sub(r"\n{3,}", "\n\n", t)       # 压缩多余空行，保留段落换行
+    if len(t) > limit:
+        t = t[:limit].rstrip() + "\n\n……（过长截断，完整见「查看角色产物」）"
+    return t
+
+
+def _one_line_digest(text: str, limit: int = 120) -> str:
+    """把产出压成「一段话」摘要（剥掉 md 标记），给任务信息里的「回报摘要」字段用。"""
+    t = _digest_body(text, limit=3000)
+    t = re.sub(r"```.*?```", " ", t, flags=re.S)
+    t = re.sub(r"\[[xX]\]\s*", "", t)
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", "\1", t)
+    t = t.replace("**", " ").replace("`", " ").replace("#", " ").replace("*", " ")
+    t = re.sub(r"^[\s>|-]+", "", t, flags=re.M)
+    t = re.sub(r"\s+", " ", t).strip()
+    if not t:
+        return ""
+    return (t[:limit] + "…") if len(t) > limit else t
+
+
+def work_summary(task_no: str) -> str:
+    """R1 汇总任务全部 subagent 产出 →《工作区/老板助理（枢纽）/T-xxx-工作汇总.md》。
+
+    内容：各角色工作与产出全文；代码类工作附「改动/产出文件 + 当前目录结构」。
+    返回 rel（供工作内容条目挂载，UI 直接查看）；失败返回 None。"""
+    try:
+        reps = store.reports(task_no)
+        if not reps:
+            return None
+        task_row = None
+        for t in store.tasks():
+            if t["no"] == task_no:
+                task_row = t
+                break
+        subs = {}
+        try:
+            for s in store.subtasks(task_no):
+                subs[s["no"]] = s["sub"]
+        except Exception:
+            pass
+        today = datetime.date.today().isoformat()
+        lines = ["# %s 工作汇总（R1） · %s" % (task_no, today), ""]
+        lines.append("> 任务：" + ((task_row or {}).get("task") or "").replace("\n", " ")[:300])
+        lines.append("> 本文件由 R1 汇总 %d 个 subagent 的回报与产出，供 R0 直接查看。" % len(reps))
+        has_code = False
+        code_files = []
+        for r in reps:
+            role = str(r.get("role") or "?")
+            st = str(r.get("status") or "")
+            sub = subs.get(str(r.get("sub_no") or ""), "")
+            src = str(r.get("src") or "")
+            body = str(r.get("body") or "")
+            lines.append("")
+            lines.append("## " + role + "（" + st + "）")
+            if sub:
+                lines.append("> 子任务：" + sub.replace("\n", " ")[:200])
+            full = _digest_body(body, limit=30000)   # R1 汇总报告 = 完整产出（去模板头、不截断）
+            if full:
+                lines.append("")
+                lines.append(full)
+            if src:
+                lines.append("")
+                lines.append("> 产出文件：" + src)
+            if _looks_code(body, src):
+                has_code = True
+                code_files.append(src)
+        if has_code:
+            lines.append("")
+            lines.append("## 代码工作：改动与当前目录结构")
+            lines.append("**改动/产出文件**：" + ("；".join(f for f in code_files if f) or "见各子任务产出"))
+            lines.append("")
+            lines.append("**当前目录结构**（项目根，" + config.ROOT.name + "）：")
+            lines.append("")
+            lines.append(_TRIPLE_BT)
+            lines.append(_tree_text(config.ROOT))
+            lines.append(_TRIPLE_BT)
+        out_p = config.WORKSPACE_ROOT / config.sanitize_dir(config.role_name("R1")) / (task_no + "-工作汇总.md")
+        out_p.parent.mkdir(parents=True, exist_ok=True)
+        out_p.write_text("\n".join(lines), encoding="utf-8")
+        return out_p.relative_to(config.ROOT).as_posix()
+    except Exception:
+        return None
+
+
+
+def piyue_report(task_no: str, task_text: str, ok_cnt: int, total: int, fail: list) -> int:
+    """任务自动执行完成后：R1 整理回报呈报 R0。
+
+    - 例行进展（默认）→ 追加「### 工作 N」到「## 工作内容」（查看即可，R0 可一键归档）；
+    - 命中决策信号（定价/拍板/是否…/请 R0）→ 追加「### 待决 N」到「## 决策裁决」（需 R0 拍板）。
+    段落格式与 parsers.parse_piyuetai / review.write_piyue 兼容。返回编号（失败返回 None）。"""
+    try:
+        rel = config.PIYUETAI_REL
+        p = config.ROOT / rel
+        text = p.read_text(encoding="utf-8") if p.exists() else ""
+        n = _piyue_next_no(text)          # 现有条目最大编号 +1（无则从 1 起）
+        brief = "无回报正文"
+        brief_hay = ""          # 决策信号检测用全文
+        try:
+            reps = store.reports(task_no)
+            if reps:
+                last = reps[-1]
+                raw = str(last.get("body") or "")
+                brief_hay = _digest_body(raw, limit=3000)
+                one = _one_line_digest(raw, limit=130)   # 回报摘要 = 一段话
+                brief = "%s（%s）：%s" % (last.get("role") or "?", last.get("status") or "?", one or "无正文内容")
+        except Exception:
+            pass
+        task_s = (task_text or "").replace(chr(10), " ").replace("|", "／")
+        # 条目 schema：标题只到任务号；长内容字段（回报摘要 / R 建议）保留原始 md 换行与标记，UI 按 markdown 渲染
+        prog = "%d/%d 子任务完成%s，回报与产物已归档入库" % (ok_cnt, total, "" if not fail else "；阻塞 " + ",".join(fail))
+        if _needs_decision(task_text, brief_hay or brief):
+            lines_b = ["### 待决 %d｜任务 %s" % (n, task_no)]
+            lines_b += _field_lines("任务", task_s[:160])
+            lines_b += _field_lines("进展", prog)
+            lines_b += _field_lines("R 建议（R1）", brief)
+            lines_b += _field_lines("需要 R0 拍板什么", "任务含决策信号（定价 / 方向 / 是否推进等），请 R0 裁决；驳回 / 修改意见将触发重新派发。")
+            lines_b += ["- **R0 批阅**：待填"]
+            blk = chr(10) + chr(10).join(lines_b) + chr(10)
+            section = "## 决策裁决"
+        else:
+            head = "### 工作 %d｜任务 %s" % (n, task_no)
+            sum_rel = ""
+            try:
+                sum_rel = work_summary(task_no)      # R1 汇总全部 subagent 产出（代码类附变更与目录树）
+            except Exception:
+                sum_rel = ""
+            lines_b = [head]
+            lines_b += _field_lines("任务", task_s[:160])
+            lines_b += _field_lines("进展", prog)
+            lines_b += _field_lines("回报摘要", brief)
+            if sum_rel:
+                lines_b += ["- **汇总文件**：" + sum_rel]
+            blk = chr(10) + chr(10).join(lines_b) + chr(10)
+            section = "## 工作内容"
+        idx = text.find(section)
+        if idx >= 0:
+            nxt = text.find("## ", idx + len(section))     # 插到该区段末尾（下一个 ## 之前）
+            if nxt < 0:
+                text = text.rstrip() + "\n" + blk
+            else:
+                text = text[:nxt] + blk + "\n" + text[nxt:]
+        else:
+            text = text.rstrip() + "\n\n" + section + "\n" + blk if text.strip() else section + "\n" + blk
+        p.write_text(text, encoding="utf-8")
+        return n
+    except Exception:
+        return None
+
+
+def clean_task_files(no: str) -> int:
+    """删除某任务在工作区的产出文件（子任务正文 / .meta.json，含已归档/），返回删除数。
+
+    只按 no + "-S" 前缀匹配（T-001-S1.md），不会误伤 T-0010 等其他任务。"""
+    removed = 0
+    for d in _wb_role_dirs():
+        for p in list(d.glob(no + "-S*.md")) + list(d.glob(no + "-S*.json")):
+            try:
+                p.unlink()
+                removed += 1
+            except OSError:
+                pass
+        arc = d / "已归档"
+        if arc.is_dir():
+            for p in list(arc.glob(no + "-S*.md")) + list(arc.glob(no + "-S*.json")):
+                try:
+                    p.unlink()
+                    removed += 1
+                except OSError:
+                    pass
+    return removed
+
+
 def rn_outputs(no: str = "") -> list:
     """扫描《工作区/》各角色目录的产出（跳过 已归档/）；no 给出时只保留该任务编号的产出。"""
     out = []

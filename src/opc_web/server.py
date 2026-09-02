@@ -63,13 +63,16 @@ class Handler(BaseHTTPRequestHandler):
         elif url == "/api/pending":
             try:
                 data = parsers.parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
-                self._json({"ok": True, "pending": data["pending"], "archive": data["archive"]})
+                self._json({"ok": True, "work": data["work"], "pending": data["pending"],
+                            "archive": data["archive"]})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
         elif url == "/api/summary":
             try:
                 data = parsers.parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
-                self._json({"ok": True, "pendingCount": len(data["pending"]),
+                self._json({"ok": True,
+                            "pendingCount": len(data["pending"]),
+                            "workCount": len(data["work"]),
                             "archiveCount": len(data["archive"]), "daily": knowledge.latest_daily()})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
@@ -177,6 +180,27 @@ class Handler(BaseHTTPRequestHandler):
             no = store.add_task(text, expect)
             scheduler.scan_once()  # 立即生成 R1 拆解指令，不等 8s 轮询
             self._json({"ok": True, "no": no, "queue": store.tasks(), "state": scheduler.SCHED_STATE})
+            return
+        if url == "/api/task-delete":
+            body = self._body()
+            if body is None:
+                self._json({"ok": False, "msg": "JSON 解析失败"}, 400)
+                return
+            no = str(body.get("no", "")).strip()
+            if not no:
+                self._json({"ok": False, "msg": "缺少任务编号 no"}, 400)
+                return
+            if not any(t["no"] == no for t in store.tasks()):
+                self._json({"ok": False, "msg": "任务 " + no + " 不在队列中"}, 404)
+                return
+            st = scheduler.SCHED_STATE
+            if st.get("busy") and no in (st.get("tag") or ""):
+                self._json({"ok": False, "msg": no + " 正在执行中，暂不可删除"}, 409)
+                return
+            store.delete_task(no)
+            removed = scheduler.clean_task_files(no)
+            self._json({"ok": True, "no": no, "removedFiles": removed, "queue": store.tasks(),
+                        "msg": "已删除任务 " + no + ((" · 清理工作区文件 " + str(removed) + " 个") if removed else "")})
             return
         if url == "/api/r1-archive":
             try:
@@ -356,6 +380,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": True, "schedules": config.schedule_status(jobs)})
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
+            return
+        if url == "/api/work-archive":
+            try:
+                body = self._body() or {}
+                item = int(str(body.get("item", "0")).strip() or 0)
+                if item <= 0:
+                    raise ValueError("缺少工作条目编号")
+                title = review.archive_work(item)
+                self._json({"ok": True, "item": item, "title": title,
+                            "msg": "工作 #%d「%s」已归档（标记已阅）" % (item, (title or "")[:40])})
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 400)
             return
         if url != "/api/piyue":
             self._json({"ok": False, "msg": "未知接口"}, 404)

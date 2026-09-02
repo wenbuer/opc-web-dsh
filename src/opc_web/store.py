@@ -107,6 +107,18 @@ def set_task(no: str, status: str, report: str = None) -> bool:
         return cur.rowcount > 0
 
 
+def delete_task(no: str) -> list:
+    """删除任务及其子任务/回报/执行记录 → 返回子任务编号列表（供工作区文件清理）。"""
+    sub_nos = []
+    with _db() as c:
+        sub_nos = [r["no"] for r in c.execute("SELECT no FROM subtask WHERE task_no = ?", (no,))]
+        c.execute("DELETE FROM execution WHERE task_no = ?", (no,))
+        c.execute("DELETE FROM report WHERE task_no = ?", (no,))
+        c.execute("DELETE FROM subtask WHERE task_no = ?", (no,))
+        c.execute("DELETE FROM task WHERE no = ?", (no,))
+    return sub_nos
+
+
 # ---------- 子任务（派发单） ----------
 def replace_subtasks(task_no: str, rows: list) -> list:
     """整体替换某任务的子任务 → 返回子任务编号列表 [T-001-S1, ...]。
