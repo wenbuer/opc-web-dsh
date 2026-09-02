@@ -35,7 +35,7 @@
     <section id="view-home" class="view active">
       <div class="home-grid">
         <div class="org-panel">
-          <div class="panel-head">组织架构 · 当前 Agent 角色与职责 <em>点击角色卡片看工作区与角色卡（可 ✎ 编辑）· 底部「＋ 新增角色」弹窗新建</em></div>
+          <div class="panel-head">组织架构</div>
           <div class="org-tree">
             <div class="org-node root">
               <span class="oid">R0</span>
@@ -72,7 +72,7 @@
         </div>
       </div>
       <div class="tl-strip">
-        <div class="panel-head">OPC 时间线（横轴） <em>数据源：决策日志 D 编号 · 时间从左至右</em></div>
+        <div class="panel-head">OPC 时间线</div>
         <div class="timeline-h" id="timeline"></div>
       </div>
     </section>
@@ -106,7 +106,7 @@
 
     <!-- ===== 知识库 ===== -->
     <section id="view-kb" class="view">
-      <div class="kb-topbar">📚 知识库 <em>管理员：老板助理（枢纽）R1 · 全体角色共同维护 —— 各角色产出先落《工作区/<角色名称>/<子任务编号>.md》，经 R1 归档入台账后进入《知识库/》，档案只读</em></div>
+      <div class="kb-topbar">📚 知识库</div>
       <div id="kbGrid" class="kb-grid"></div>
       <div id="kbDoc" class="kb-doc" style="display:none"></div>
     </section>
@@ -123,7 +123,6 @@
     <section id="view-workbench" class="view">
       <div class="dispatch-panel">
         <div class="panel-head pane-ctl">任务工作台
-          <em>下达 → R1 自动拆解 → 派发各角色执行 → 回报归档；点任务行看详情</em>
           <span class="sched-ctl">
             <span id="schedStat" class="dq-state"></span>
             <button id="btnToggleSched" class="btn-gold small">⏸ 暂停</button>
@@ -136,11 +135,11 @@
         <div class="launch-state"><span id="dqState" class="dq-state">等待下达 —— 输入任务后点「▶ 下达」，R1 自动拆解并派发给各角色执行</span></div>
         <div class="wb-cols">
           <div class="wb-col wb-left">
-            <div class="wb-col-head">任务列表 <em>点击任务行 → 中间看执行监听 / 右侧看详情</em></div>
+            <div class="wb-col-head">任务列表</div>
             <div id="dqQueue" class="dq-table"><div class="placeholder">排队中 —— 在上方下达第一个任务</div></div>
           </div>
           <div class="wb-col">
-            <div class="wb-col-head">🗂 子任务看板 <em>左侧选中任务 = 只看该任务；未选 = 全部 · 点卡片看详情</em></div>
+            <div class="wb-col-head">🗂 子任务看板</div>
             <div class="board-bar">
               <input id="boardSearch" class="board-search" placeholder="搜索编号 / 子任务 / 角色…" />
               <span id="boardStat" class="board-stat">—</span>
@@ -148,10 +147,10 @@
             <div id="board" class="board"><div class="placeholder">暂无子任务 —— 下达任务后 R1 拆解即出现</div></div>
           </div>
           <div class="wb-col">
-            <div class="wb-col-head">任务详情 <em>执行历史 · 回报 · 产物 · 调度日志</em></div>
+            <div class="wb-col-head">任务详情</div>
             <div id="actPanel" class="act-panel"><div class="placeholder">← 点任务行或看板卡片，这里显示执行角色</div></div>
             <div id="taskOut" class="task-out"><div class="placeholder">← 点任务行或看板卡片，这里聚合执行历史、回报、产物与调度日志</div></div>
-            <div class="live-head">⚡ 实时事件<em>自动执行链</em></div>
+            <div class="live-head">⚡ 实时事件</div>
             <div id="runLog" class="run-log"><div class="placeholder">空闲 —— 下达任务后自动滚动 R1 拆解与派发事件</div></div>
           </div>
         </div>
@@ -169,7 +168,7 @@
         </aside>
         <div class="settings-main">
           <div class="snav-pane active" data-pane="dir">
-            <div class="set-head">项目 <em>一个 opc-web 对应多个 OPC 项目：每个项目一个目录，完全自包含（agents/ 角色阵容 + 批阅台/工作区/知识库 数据）。切换即整体切换，无需重启</em></div>
+            <div class="set-head">项目</div>
             <div class="proj-row">
               <input id="projName" class="proj-name" placeholder="项目名，如 KeepTalk">
               <input id="projRoot" class="proj-root" placeholder="项目目录（绝对路径，如 D:/opc/keeptalk）">
@@ -187,7 +186,7 @@
               <br>角色定义在项目内，切换项目 = 换一套角色 + 换一本台账；定时任务也跟项目走。</div>
           </div>
           <div class="snav-pane" data-pane="model">
-            <div class="set-head">大模型 API（模型接入） <em>接入方式同 dsh 模型 API：提供方 → 凭据引用 <code>&lt;ROUTE&gt;_API_KEY</code>（环境变量 / 项目根 .env），密钥不进 opc-config.json 明文；baseURL / 模型可按部署覆盖</em></div>
+            <div class="set-head">大模型 API</div>
             <div class="mapi-row">
               <label>提供方
                 <select id="mApiProvider">
@@ -215,14 +214,14 @@
             <div class="set-note" id="mApiNote"></div>
           </div>
           <div class="snav-pane" data-pane="schedule">
-            <div class="set-head">定时任务 <em>到点自动写入《批阅台/任务下达队列.md》+ 调度日志，生成调度指令，由常驻主会话 R1 拆解派发执行（控制台只下达，不跑 agent）</em></div>
+            <div class="set-head">定时任务</div>
             <div class="sched-grid">
               <div class="sched-col">
-                <div class="sched-col-head">已配置 · 到点自动触发 <em>启停 / 删除</em></div>
+                <div class="sched-col-head">已配置</div>
                 <div id="schedList" class="sched-list"></div>
               </div>
               <div class="sched-col">
-                <div class="sched-col-head">＋ 新增定时任务 <em>创建后由 R1 执行</em></div>
+                <div class="sched-col-head">＋ 新增定时任务</div>
                 <div class="form sched-form">
                   <div class="sched-fld"><label>任务指令</label>
                     <textarea id="schedTask" placeholder="如：R3 以内容工厂身份把本周产品动态整理成《知识库索引.md》新条目"></textarea>
@@ -284,7 +283,7 @@
   <!-- ===== 目录选择器（设置 → 项目：浏览本机目录并填入） ===== -->
   <div class="modal-mask" id="dirModal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><span>📁 选择项目目录</span><em>点击目录进入 · 「选此目录」填入项目目录框</em><button class="modal-x" id="btnDirClose" title="关闭（Esc）">×</button></div>
+      <div class="modal-head"><span>📁 选择项目目录</span><button class="modal-x" id="btnDirClose" title="关闭（Esc）">×</button></div>
       <div class="dir-current" id="dirCurrent"></div>
       <div class="dir-list" id="dirList"></div>
       <div class="modal-foot">
