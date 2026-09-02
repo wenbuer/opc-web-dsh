@@ -4,7 +4,8 @@
 > 控制台只负责「下达与记录」，执行交给常驻主会话 R1 与各角色 subagent —— 你自己当老板，AI 当员工。
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
-[![Dependencies](https://img.shields.io/badge/dependencies-zero%20third--party-brightgreen.svg)](pyproject.toml)
+[![Python deps](https://img.shields.io/badge/python%20deps-0%20pip%20packages-brightgreen.svg)](pyproject.toml)
+[![Runtime](https://img.shields.io/badge/runtime-requires%20DSH-important.svg)](#快速开始)
 [![Network](https://img.shields.io/badge/network-127.0.0.1%20only-purple.svg)](#隐私与提交规范)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -14,10 +15,15 @@
 
 一个人也能开一家公司：OPC 模式把「需求研究 → 内容生产 → 增长运营 → 用户洞察 → 数据分析 → 财务合规 → 产品设计 → 技术实现」拆给一套 **AI 角色体系（R0~R9）** 分工协作。
 
-opc-web 就是这家公司的**指挥入口**——一个纯本地的 Web 控制台（Python 标准库实现，**零第三方依赖**）：
+opc-web 就是这家公司的**指挥入口**——纯本地的 Web 控制台，按「控制台 + 执行引擎」两层分工：
+
+- **控制台本体（本项目）**：Python 3.9+ 纯标准库实现（`http.server` / `sqlite3`），**零 pip 第三方依赖**；只做下达、台账、批阅、归档与展示，只监听 `127.0.0.1`；
+- **执行引擎 = DSH（DeepSeek Harness）**：任务拆解由控制台调用 `dsh --profile headless` 直跑，角色拆解与 subagent 派发由 **dsh 常驻主会话 R1** 承担——没有 dsh，控制台只能记账，跑不了任务闭环。
+
+怎么配合：
 
 - 你只负责**拍板**：下达任务、批阅角色回报、归档决策；
-- R1（老板助理）负责**调度**：读指令 → 拆子任务 → 用 subagent 逐个派发给对应角色；
+- R1（老板助理，dsh 常驻主会话）负责**调度**：读台账 / 调度日志 → 拆子任务 → 用 subagent 逐个派发给对应角色；
 - R2~R9 负责**干活**：产出写进各自工作区，回报回传台账；
 - 状态走 SQLite 台账，正文走 md 公文，全部落本机目录，**不上云、不出网**。
 
@@ -50,7 +56,7 @@ opc-web 就是这家公司的**指挥入口**——一个纯本地的 Web 控制
 ## 特性
 
 - **一套 AI 角色体系**：R0 创始人（拍板）→ R1 老板助理（枢纽调度）→ R2~R9 业务角色（需求研究 / 内容工厂 / 增长运营 / 用户洞察 / 数据分析 / 财务合规 / 产品设计 / 技术评估），支持在界面直接 **＋新增 / ✎编辑 / 🗑删除** 角色，自动编号 R10+。
-- **纯本地、零依赖**：Python 3.9+ 标准库（`http.server` / `sqlite3`）实现，`python run.py` 即起；只监听 `127.0.0.1`，凭据只写本地 `.env`。
+- **控制台零 pip 依赖，执行由 DSH 驱动**：控制台本体 Python 标准库实现（无第三方包），`python run.py` 即起、只监听 `127.0.0.1`、凭据只写本地 `.env`；任务拆解走 `dsh --profile headless`，角色派发由 dsh 常驻主会话 R1 用 subagent 完成。
 - **六个工作视图**：作战面板 / 批阅台 / 工作台 / 知识库 / 每日简报 / 设置，一条浏览器标签页管完「下达 → 执行 → 批阅 → 归档」闭环。
 - **R1 自动拆解派发**：任务下达即落 SQLite 台账、生成派发指令，常驻主会话 R1 读到后拆成子任务逐个派发给角色，全程自动。
 - **智能任务看板**：子任务按状态四列展示（待派 / 执行中 / 已完成 / 已归档），支持搜索、按任务筛选执行角色、点击回溯全程输出。
@@ -77,6 +83,8 @@ opc-web 就是这家公司的**指挥入口**——一个纯本地的 Web 控制
 
 ## 快速开始
 
+**环境要求**：Python 3.9+；已安装 **DSH**（DeepSeek Harness，`dsh` 在 PATH 上——任务拆解会调用 `dsh --profile headless`）。
+
 ```bash
 # 方式一：命令行启动（推荐）
 cd opc-web
@@ -87,8 +95,9 @@ python run.py
 
 1. 启动后浏览器访问 **http://127.0.0.1:8901**（端口可在 `opc-config.json` 修改）；
 2. 首次启动自动生成 `批阅台/`（公文 + SQLite 台账）、`工作区/<角色名称>/`、`知识库/` 三个目录与骨架文件，无需手动创建；
-3. （可选，推荐）在「设置 → ② 模型接入」填入大模型 API Key——没有它 R1 / 角色没有模型后端可用；
-4. 去「作战面板」或「工作台」下达第一个任务试试。
+3. 在「设置 → ② 模型接入」填入大模型 API Key——R1 / 角色依赖它调用模型；
+4. **开一个 dsh 常驻主会话（R1 助理）**：按 `agents-seed/R1.role.md` 装载角色并保持在线，它读取台账 / 调度日志并用 subagent 承接派发；
+5. 去「作战面板」或「工作台」下达第一个任务试试。
 
 ---
 
@@ -179,7 +188,7 @@ python run.py
 
 ## 开发与测试
 
-- 环境：Python 3.9+，零第三方依赖（标准库 `http.server` / `sqlite3`）；
+- 环境：Python 3.9+，控制台零 pip 依赖（标准库 `http.server` / `sqlite3`）；执行闭环需 dsh（见[快速开始](#快速开始)）；
 - 角色管理 CLI：`python -m opc_web roles list | add --name … --duty …`；
 - 运行测试：
 
