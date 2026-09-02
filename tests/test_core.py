@@ -107,7 +107,8 @@ class TestParsers(_TmpKB):
             "## 待决\n| 编号 | 待决事项 | 提出者 | 日期 | R0 批阅 |\n|---|---|---|---|---|\n"
             "### 待决 20｜写批阅测试\n- **R0 批阅**：待填\n", encoding="utf-8")
         line = review.write_piyue("20", "✅", "同意试点")
-        self.assertIn("✅", line)
+        self.assertNotIn("✅", line)          # md 不落表情符
+        self.assertIn("批准", line)
         self.assertIn("同意试点", line)
         text = knowledge.read_md(config.PIYUETAI_REL)
         self.assertNotIn("待填", text)
