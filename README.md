@@ -243,13 +243,7 @@ python -m unittest discover -s tests -v
 
 ## 支持与致谢
 
-如果你觉得 opc-web 好用，欢迎在仓库右上角**点一个 ⭐ Star**——让更多「一人公司」和独立开发者看到它，就是最好的支持：
-
-<p align="center">
-  <a href="https://github.com/wenbuer/opc-web-dsh/stargazers">
-    <img src="https://img.shields.io/github/stars/wenbuer/opc-web-dsh?style=social&label=Star" alt="GitHub Stars">
-  </a>
-</p>
+如果你觉得 opc-web 好用，欢迎在仓库右上角**点一个 ⭐ Star**——让更多「一人公司」和独立开发者看到它，就是最好的支持！
 
 如果这个项目对你有帮助，或是让你不用从零开发自己的 AI 员工团队，也欢迎请作者喝杯咖啡 ☕——每一份支持都会用于持续的维护与新功能：
 
