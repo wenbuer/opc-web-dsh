@@ -1388,7 +1388,7 @@
   function applyTheme(t){
     document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
     var b = document.getElementById("btnTheme");
-    if (b) b.textContent = t === "dark" ? "☀️ 浅色" : "🌙 深色";
+    if (b) b.textContent = t === "dark" ? "浅色" : "深色";
     try { localStorage.setItem("opcTheme", t); } catch(e){}
   }
   function toggleTheme(){
