@@ -373,20 +373,7 @@
       }).catch(function(){});
     }, 2500);
   }
-  function archiveR1(){
-    $("dqState").textContent = "归档中…";
-    post("/api/r1-archive").then(function(j){
-      if (j && j.ok){
-        var r = j.result || {};
-        var parts = [];
-        if ((r.archived || []).length) parts.push("入库 " + r.archived.length + " 项：" + r.archived.join("；"));
-        if ((r.skipped || []).length) parts.push("跳过 " + r.skipped.length + " 项（未完成）");
-        if ((r.ledger || []).length) parts.push("待指定归档 " + r.ledger.length + " 项");
-        $("dqState").textContent = "归档完成：" + (parts.join(" · ") || "无可归档产出"); loadQueue();
-      }
-      else { $("dqState").textContent = "归档失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ $("dqState").textContent = "归档异常：" + e.message; });
-  }
+
   function planExec(){
     $("dqState").textContent = "按派发单启动子任务…";
     post("/api/plan-execute").then(function(j){
@@ -403,7 +390,6 @@
     setTimeout(function(){ dqTicking = false; }, 4000);
   }
   document.getElementById("btnOneClick").addEventListener("click", oneClickDispatch);
-  document.getElementById("btnArchiveR1").addEventListener("click", archiveR1);
   var bt = document.getElementById("btnToggleSched");
   if (bt) bt.addEventListener("click", toggleSched);
   setInterval(dqTick, 12000);
@@ -1219,6 +1205,55 @@
     var bt = $("btnTestModelApi"); if (bt) bt.addEventListener("click", testModelApi);
     var mpv = $("mApiProvider"); if (mpv) mpv.addEventListener("change", modelProviderChanged);
     var sa = $("btnSchedAdd"); if (sa) sa.addEventListener("click", addSched);
+    var bb = $("btnBrowseDir"); if (bb) bb.addEventListener("click", dirOpen);
+    var dcl = $("btnDirClose"); if (dcl) dcl.addEventListener("click", dirClose);
+    var dup = $("btnDirUp"); if (dup) dup.addEventListener("click", function(){ if (DIR.parent) dirLoad(DIR.parent); });
+    var dpk = $("btnDirPick"); if (dpk) dpk.addEventListener("click", dirPick);
+    var dm = $("dirModal");
+    if (dm) dm.addEventListener("click", function(e){ if (e.target === dm) dirClose(); });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape") dirClose(); });
+  }
+
+  /* ================= 目录选择器（设置 → 项目） ================= */
+  var DIR = { path: "", parent: "" };
+  function dirOpen(){
+    DIR = { path: "", parent: "" };
+    var m = $("dirModal");
+    if (m){ m.hidden = false; dirLoad(""); }
+  }
+  function dirLoad(p){
+    api("/api/dirs?path=" + encodeURIComponent(p || "")).then(function(j){
+      var msg = $("dirMsg");
+      if (!j || !j.ok){ if (msg) msg.textContent = (j && j.msg) || "加载失败"; return; }
+      DIR.path = j.path || ""; DIR.parent = j.parent || "";
+      var cur = $("dirCurrent"); if (cur) cur.textContent = DIR.path || "（磁盘根）";
+      var list = $("dirList"); if (!list) return;
+      list.innerHTML = "";
+      var dirs = j.dirs || [];
+      if (!dirs.length){
+        list.innerHTML = "<div class='dir-empty'>（无子目录）</div>";
+      }
+      dirs.forEach(function(d){
+        var el = document.createElement("div");
+        el.className = "dir-item";
+        el.innerHTML = "<span class='dir-ico'>📁</span><span class='dir-name'>" + esc(d) + "</span>";
+        el.addEventListener("click", function(){
+          dirLoad(DIR.path ? DIR.path.replace(/\/+$/, "") + "/" + d : d);
+        });
+        list.appendChild(el);
+      });
+      var up = $("btnDirUp"); if (up) up.disabled = !DIR.parent;
+      if (msg) msg.textContent = "";
+    });
+  }
+  function dirPick(){
+    var v = $("projRoot");
+    if (v && DIR.path) v.value = DIR.path;
+    dirClose();
+  }
+  function dirClose(){
+    var m = $("dirModal");
+    if (m) m.hidden = true;
   }
 
   function schedDesc(j){

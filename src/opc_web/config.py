@@ -56,12 +56,19 @@ def active_project() -> dict:
     return ps[0] if ps else {}
 
 
+# 默认数据目录：无激活项目时数据落在程序目录旁（opc-data/），绝不混进代码目录。
+# 建项目后 ROOT = 项目目录，运行数据（批阅台/工作区/知识库/台账）全部随项目走。
+DATA_DIR = BASE.parent / "opc-data"
+
+
 def _resolve_root() -> Path:
-    """优先级：env OPC_KB_ROOT > 激活项目 root > 旧字段 root > BASE。"""
+    """优先级：env OPC_KB_ROOT > 激活项目 root > 旧字段 root > 默认数据目录。"""
     s = (os.environ.get("OPC_KB_ROOT")
          or str(active_project().get("root") or "")
          or str(_CFG.get("root") or "")
-         or ".")
+         or "")
+    if not s:
+        return DATA_DIR
     return Path(s).resolve() if os.path.isabs(s) else (BASE / s).resolve()
 
 
@@ -78,10 +85,6 @@ PIYUETAI_REL = "批阅台/批阅台.md"
 DB_REL = "批阅台/opc.db"               # 状态台账（任务/子任务/回报）—— 唯一真相，见 store.py
 LOG_REL = "批阅台/决策日志.md"          # R0 决策记录 + 派发单（parsers 读取）
 
-# 已退役的 md 表格（仅供一次性迁移入库与 legacy 归档定位，程序不再读写）
-QUEUE_REL = "批阅台/任务下达队列.md"
-REPORT_REL = "批阅台/回报队列.md"
-DISPATCH_REL = "批阅台/派发单-动态.md"
 SCHED_LOG_REL = "批阅台/调度日志.md"   # R1/控制台运行日志（log_schedule 追加）
 ARCH_REL = "知识库/OPC智能体角色架构.md"
 INDEX_REL = "知识库/知识库索引.md"
@@ -96,25 +99,9 @@ HOST = "127.0.0.1"
 PORT = int(os.environ.get("OPC_PORT") or _CFG.get("port") or 8901)
 
 
-def piyuetai_file():
-    """批阅台（R0 批阅入口）。"""
-    return ROOT / PIYUETAI_REL
-
-
-def db_file():
-    """状态台账 SQLite（跟随 ROOT，测试可猴补丁 config.ROOT）。"""
-    return ROOT / DB_REL
-
-
-
 def wb_root():
     """角色作业区根（ROOT/工作区/）。"""
     return WORKSPACE_ROOT
-
-
-def kb_root():
-    """知识档案根（ROOT/知识库/）。"""
-    return KB_ROOT
 
 
 # ---------- 配置读写（「设置」视图 /api/settings 使用） ----------
@@ -250,25 +237,38 @@ def settings_info() -> dict:
 
 
 def list_dirs(base_path: str = "") -> dict:
-    """列出 path 的直接子目录（目录选择器用）；path 空 → 根目录（三个自动文件夹可见）。"""
+    """目录选择器：列出 path 的直接子目录（不含隐藏项），返回 parent 供「上级」导航。
+    path 为空 → Windows 盘符列表 / 其他系统根目录。"""
     try:
-        p = Path(base_path).resolve() if base_path else ROOT
+        if not base_path:
+            if os.name == "nt":
+                drives = []
+                for d in "ABCDEFGHIJKLMNOPQRSTUVWXYZ":
+                    p = Path(d + ":\\")
+                    if p.exists():
+                        drives.append(p.as_posix())
+                return {"ok": True, "path": "", "parent": "", "dirs": drives}
+            root = Path("/")
+            return {"ok": True, "path": "/", "parent": "",
+                    "dirs": sorted(d.name for d in root.iterdir() if d.is_dir())}
+        p = Path(base_path).resolve()
         if not p.is_dir():
             return {"ok": False, "msg": "目录不存在或不可读：" + str(p)}
         dirs = sorted(d.name for d in p.iterdir() if d.is_dir() and not d.name.startswith("."))
-        return {"ok": True, "path": str(p), "dirs": dirs}
+        parent = "" if p.parent == p else str(p.parent)
+        return {"ok": True, "path": str(p), "parent": parent, "dirs": dirs}
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
 
 # ---------- 角色名称 ↔ 工作区目录（web 引用/工作区创建用角色名称；R1/R2 仅为编号 Id） ----------
 
-_ROLE_NAME_RE = re.compile("名称" + chr(92) + "s*[：:]([^｜|" + chr(92) + "r" + chr(92) + "n]+)")
+_ROLE_NAME_RE = re.compile(r"名称\s*[：:]([^｜|\r\n]+)")
 
 
 def sanitize_dir(name: str) -> str:
     """把角色名称转换为安全目录片段（去非法字符，保留中文/括号）。"""
-    bad = set(chr(92) + "/:*?<>|\"" + chr(39) + chr(9) + chr(13) + chr(10) + " ")
+    bad = set("\\/:*?<>|\"'\t\r\n ")
     s = "".join(c for c in str(name or "") if c not in bad).strip()
     return s or "未命名"
 
@@ -281,17 +281,6 @@ def role_name(no: str) -> str:
         if m and m.group(1).strip():
             return m.group(1).strip()
     return no
-
-
-def role_ws_dir(no: str) -> str:
-    """角色编号 → 工作区目录名 = 角色名称（不带 -输出 后缀）。"""
-    return sanitize_dir(role_name(no))
-
-
-
-def role_ws_rel(no: str) -> str:
-    """角色编号 → 相对路径「工作区/<角色名称>」。"""
-    return "%s/%s" % (WORKSPACE_REL, role_ws_dir(no))
 
 
 # ---------- 大模型 API（模型接入，参照 dsh 模型 API 接入惯例） ----------

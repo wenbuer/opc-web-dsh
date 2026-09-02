@@ -39,18 +39,16 @@ def subtask_spec(no: str, task_text: str, expect: str = "", sub_no: str = "") ->
     共用固定名会让同角色的多个任务互相覆盖，且归档正则只认得第一条。"""
     if not sub_no:
         raise ValueError("subtask_spec 需要子任务编号：产出按编号命名，共用固定名会让同角色的多任务互相覆盖")
-    d = "%s/%s" % (config.WORKSPACE_REL, config.role_ws_dir(no))
+    d = "%s/%s" % (config.WORKSPACE_REL, config.sanitize_dir(config.role_name(no)))
     out_rel = "%s/%s.md" % (d, sub_no)
     meta_rel = "%s/%s.meta.json" % (d, sub_no)
     return {
         "role": no,
         "roleName": config.role_name(no),
         "prompt": agent_prompt(no, task_text, out_rel, meta_rel),
-        "workspaceRoot": str(config.ROOT).replace("\\", "/"),
         "output": out_rel,
         "meta": meta_rel,
         "expect": expect,
-        "discipline": "《知识库/》档案与《批阅台/》公文只读不写；产出先落《%s》再由 R1 归档。" % out_rel,
     }
 
 
@@ -60,6 +58,3 @@ def log_schedule(tag: str, text: str):
         f.write("\n\n## 【调度指令】%s %s\n\n%s\n" % (tag, datetime.datetime.now().strftime("%Y-%m-%d %H:%M"), text))
 
 
-def headless_removed() -> bool:
-    """v1.8 标记：本版本无 headless one-shot 通道（供文档/测试断言）。"""
-    return True

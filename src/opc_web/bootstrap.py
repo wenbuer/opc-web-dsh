@@ -2,94 +2,11 @@
 """部署自举 v1.10：单根目录模型 —— 自动产生 批阅台/、工作区/、知识库/ 三个文件夹，
 工作区按「角色名称」建子文件夹（旧结构一次性迁移后不再保留 决策/运营/营销 等静态分类）。
 幂等：已存在的目录/种子文件不重建，可重复运行。"""
-import datetime
-import re
 import shutil
 
-from . import config, store
+from . import config
 
 BOOT_LOG = []
-
-
-def _migrate_legacy():
-    """一次性迁移 v1.9 旧结构（BASE/knowledge 下 决策/运营/工作区…）→ v1.10 三目录模型。
-    幂等：目标 知识库/OPC智能体角色架构.md 已存在则跳过。"""
-    old = config.BASE / "knowledge"
-    if not old.is_dir():
-        return
-    if (config.KB_ROOT / "OPC智能体角色架构.md").exists():
-        return
-    for d in (config.BATCH_ROOT, config.WORKSPACE_ROOT, config.KB_ROOT):
-        d.mkdir(parents=True, exist_ok=True)
-    # 1) 知识库档案（根目录 md）→ 知识库/
-    for p in sorted(old.glob("*.md")):
-        try:
-            (config.KB_ROOT / p.name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
-            BOOT_LOG.append("迁移 知识档案 " + p.name + " → 知识库/")
-        except Exception:
-            pass
-    # 2) 决策/运营 等公文 → 批阅台/
-    for sub in ("决策", "运营", "行政", "管理"):
-        sd = old / sub
-        if sd.is_dir():
-            for p in sorted(sd.glob("*.md")):
-                try:
-                    (config.BATCH_ROOT / p.name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
-                    BOOT_LOG.append("迁移 " + sub + "/" + p.name + " → 批阅台/")
-                except Exception:
-                    pass
-    # 3) 其余分类（营销/需求/证据/战略/验证/财务/技术）md → 知识库/ 平铺
-    for sub in ("营销", "需求", "证据", "战略", "验证", "财务", "技术"):
-        sd = old / sub
-        if sd.is_dir():
-            for p in sorted(sd.glob("*.md")):
-                try:
-                    (config.KB_ROOT / p.name).write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
-                    BOOT_LOG.append("迁移 " + sub + "/" + p.name + " → 知识库/")
-                except Exception:
-                    pass
-    # 4) 工作区角色输出 → 工作区/<角色名称>/（去 -输出 后缀、按角色名归位）
-    ow = old / "工作区"
-    if ow.is_dir():
-        for d in sorted(ow.iterdir()):
-            if not d.is_dir():
-                continue
-            name = d.name
-            if name.endswith("-输出"):
-                base_n = name[:-3]
-                m = re.match(r"^(R\d+)$", base_n)
-                if m:
-                    name = config.role_name(m.group(1))
-                else:
-                    name = base_n
-            if not name or name in (".", ".."):
-                continue
-            target = config.WORKSPACE_ROOT / name
-            try:
-                if target.exists():
-                    for f in d.iterdir():
-                        if f.is_file():
-                            shutil.copy2(f, target / f.name)
-                else:
-                    shutil.move(str(d), str(target))
-                BOOT_LOG.append("迁移 工作区/" + d.name + " → 工作区/" + name)
-            except Exception:
-                pass
-    # 5) 旧调度日志 → 批阅台/调度日志.md
-    lg = config.BASE / "运营-调度日志.md"
-    if lg.exists():
-        try:
-            (config.BATCH_ROOT / "调度日志.md").write_text(lg.read_text(encoding="utf-8"), encoding="utf-8")
-            BOOT_LOG.append("迁移 运营-调度日志.md → 批阅台/调度日志.md")
-        except Exception:
-            pass
-    try:
-        import shutil as _sh
-        _sh.rmtree(old)
-        BOOT_LOG.append("已移除旧结构 knowledge/ 目录（内容已并入三目录）")
-    except Exception as e:
-        BOOT_LOG.append("旧结构 knowledge/ 保留（%s）" % e)
-    BOOT_LOG.append("旧结构迁移完成 → 三目录模型（批阅台/工作区/知识库）")
 
 
 def init_agents():
@@ -113,10 +30,7 @@ def init_agents():
 
 def bootstrap():
     BOOT_LOG.clear()          # 只报本次，不累积历史
-    _migrate_legacy()
     init_agents()
-    for ln in store.migrate_md_tables():      # 退役 md 表格 → SQLite 台账（一次性、幂等）
-        BOOT_LOG.append("台账迁移：" + ln)
     for d in (config.BATCH_ROOT, config.WORKSPACE_ROOT, config.KB_ROOT):
         d.mkdir(parents=True, exist_ok=True)
     # 角色工作区：按「角色名称」建目录（v1.10）

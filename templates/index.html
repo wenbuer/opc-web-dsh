@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>OPC 指挥中心 · 作战面板</title>
-<link rel="stylesheet" href="/static/main.css?v=20260216d">
+<link rel="stylesheet" href="/static/main.css?v=20260216f">
 </head>
 <body>
 <div class="shell">
@@ -127,7 +127,6 @@
           <span class="sched-ctl">
             <span id="schedStat" class="dq-state"></span>
             <button id="btnToggleSched" class="btn-gold small">⏸ 暂停</button>
-            <button id="btnArchiveR1" class="btn-gold small">🗂 归档</button>
           </span>
         </div>
         <div class="launch-row">
@@ -174,6 +173,7 @@
             <div class="proj-row">
               <input id="projName" class="proj-name" placeholder="项目名，如 KeepTalk">
               <input id="projRoot" class="proj-root" placeholder="项目目录（绝对路径，如 D:/opc/keeptalk）">
+              <button id="btnBrowseDir" class="mini" title="打开目录选择器：浏览本机目录并填入">📁 选择</button>
               <button id="btnProjAdd" class="mini">＋ 新建项目</button>
               <span id="projMsg" class="set-msg"></span>
             </div>
@@ -280,7 +280,21 @@
       </div>
     </div>
   </div>
+
+  <!-- ===== 目录选择器（设置 → 项目：浏览本机目录并填入） ===== -->
+  <div class="modal-mask" id="dirModal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><span>📁 选择项目目录</span><em>点击目录进入 · 「选此目录」填入项目目录框</em><button class="modal-x" id="btnDirClose" title="关闭（Esc）">×</button></div>
+      <div class="dir-current" id="dirCurrent"></div>
+      <div class="dir-list" id="dirList"></div>
+      <div class="modal-foot">
+        <button id="btnDirUp">⬆ 上级目录</button>
+        <button id="btnDirPick">✅ 选此目录</button>
+        <span id="dirMsg" class="set-msg"></span>
+      </div>
+    </div>
+  </div>
 </div>
-<script src="/static/main.js?v=20260216e"></script>
+<script src="/static/main.js?v=20260216f"></script>
 </body>
 </html>

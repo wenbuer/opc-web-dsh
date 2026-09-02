@@ -59,7 +59,7 @@ class TestConfigFile(unittest.TestCase):
         self.assertEqual(config.WORKSPACE_REL, "工作区")
         self.assertEqual(config.PORT, 8901)
         self.assertTrue(config.KB_ROOT.name == "知识库")
-        self.assertEqual(config.piyuetai_file().name, "批阅台.md")
+        self.assertEqual((config.ROOT / config.PIYUETAI_REL).name, "批阅台.md")
         self.assertEqual(config.wb_root().name, "工作区")
 
 

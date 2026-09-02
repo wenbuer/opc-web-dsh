@@ -10,10 +10,9 @@ from opc_web import agent, config  # noqa: E402
 
 
 class TestNoHeadless(unittest.TestCase):
-    def test_headless_removed(self):
+    def test_no_headless_channel(self):
         self.assertFalse(hasattr(agent, "run_headless"), "agent 模块不应再有 run_headless")
         self.assertFalse(hasattr(agent, "bash_exe"), "agent 模块不应再有 bash_exe")
-        self.assertTrue(agent.headless_removed())
 
     def test_preset_channel_is_gone(self):
         """preset 通道已移除：subagent 工具无 preset 参数，继承方向也反了，留着只会误导。"""
@@ -49,7 +48,6 @@ class TestSubtaskSpec(unittest.TestCase):
         self.assertEqual(spec["output"], "工作区/需求研究员/T-007-S1.md")
         self.assertEqual(spec["meta"], "工作区/需求研究员/T-007-S1.meta.json")
         self.assertIn("挖掘 5 条新用户原声", spec["prompt"])
-        self.assertEqual(spec["workspaceRoot"], str(config.ROOT).replace("\\", "/"))
 
 
 if __name__ == "__main__":

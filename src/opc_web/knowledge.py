@@ -1,23 +1,8 @@
 # -*- coding: utf-8 -*-
 """知识库只读层：md 文件树与单文件读取（路径白名单约束；只读纪律在此强制）。"""
 import re
-from pathlib import Path
 
 from . import config
-
-
-def scan_md_files(root: Path) -> list:
-    """返回 [{dir, files:[{name, rel}]}]，按顶层目录分组；根目录平铺归入 [根]。"""
-    groups = {}
-    for p in sorted(root.rglob("*.md")):
-        if "legacy" in p.parts or "归档" in p.parts or "archive" in p.parts:
-            continue
-        if "工作区" in p.parts:          # 角色作业区不入知识库树（与旧版一致）
-            continue
-        rel = p.relative_to(config.ROOT).as_posix()
-        top = rel.split("/")[0] if "/" in rel else "[根]"
-        groups.setdefault(top, []).append({"name": p.name, "rel": rel})
-    return [{"dir": d, "files": sorted(groups[d], key=lambda x: x["name"])} for d in sorted(groups)]
 
 
 def read_md(rel: str) -> str:

@@ -9,7 +9,6 @@
 md 仍然承载正文与公文（回报正文 / 批阅台 / 决策日志 / 知识库），不承载状态。
 """
 import datetime
-import re
 import sqlite3
 from contextlib import contextmanager
 
@@ -67,7 +66,7 @@ def _db():
 
     ponytail: 每次都跑一遍 CREATE TABLE IF NOT EXISTS（微秒级、永远正确）；
     等真的成为热点再缓存。"""
-    p = config.db_file()
+    p = config.ROOT / config.DB_REL
     p.parent.mkdir(parents=True, exist_ok=True)
     c = sqlite3.connect(p, timeout=15)
     c.row_factory = sqlite3.Row
@@ -226,76 +225,4 @@ def last_execution_by_role() -> dict:
             "ORDER BY e.started_at, e.id").fetchall()
     return {r["role"]: dict(r) for r in rows}
 
-
-# ---------- 一次性迁移：退役的 md 表格 → 本库 ----------
-_ROW = re.compile(r"^\|(.+)\|\s*$")
-
-
-def _cells(line: str) -> list:
-    """md 表格行 → 单元格列表；非表行或 |---|---| 分隔行返回 []。"""
-    m = _ROW.match(line.strip())
-    if not m:
-        return []
-    cells = [c.strip() for c in m.group(1).split("|")]
-    return [] if all(set(c) <= set("-: ") for c in cells) else cells
-
-
-def migrate_md_tables() -> list:
-    """把退役的三个 md 表格导入本库，原文件移入《批阅台/legacy/》。
-
-    幂等：靠主键 INSERT OR IGNORE；文件移走后不再重复执行。"""
-    out = []
-    files = {rel: config.ROOT / rel for rel in
-             (config.QUEUE_REL, config.DISPATCH_REL, config.REPORT_REL)}
-    if not any(p.exists() for p in files.values()):
-        return out
-    with _db() as c:
-        q = files[config.QUEUE_REL]
-        if q.exists():
-            n = 0
-            for ln in q.read_text(encoding="utf-8").split("\n"):
-                cs = _cells(ln)
-                if len(cs) < 5 or not cs[0].startswith("T-"):
-                    continue
-                c.execute("INSERT OR IGNORE INTO task(no, date, task, expect, status, report) "
-                          "VALUES(?, ?, ?, ?, ?, ?)",
-                          (cs[0], cs[1], cs[2], cs[3], cs[4], cs[5] if len(cs) > 5 else "—"))
-                n += 1
-            out.append("任务下达队列.md → task %d 行" % n)
-        d = files[config.DISPATCH_REL]
-        if d.exists():
-            seq, n = {}, 0
-            for ln in d.read_text(encoding="utf-8").split("\n"):
-                cs = _cells(ln)
-                if len(cs) < 4 or not cs[0].startswith("T-") or not re.match(r"^R\d+", cs[2]):
-                    continue
-                seq[cs[0]] = seq.get(cs[0], 0) + 1
-                c.execute("INSERT OR IGNORE INTO subtask(no, task_no, sub, role, expect, status) "
-                          "VALUES(?, ?, ?, ?, ?, ?)",
-                          ("%s-S%d" % (cs[0], seq[cs[0]]), cs[0], cs[1], cs[2].split()[0],
-                           cs[3], cs[4] if len(cs) > 4 else "待派"))
-                n += 1
-            out.append("派发单-动态.md → subtask %d 行" % n)
-        r = files[config.REPORT_REL]
-        if r.exists():
-            seq, n = {}, 0
-            for ln in r.read_text(encoding="utf-8").split("\n"):
-                cs = _cells(ln)
-                if len(cs) < 5 or not re.match(r"^\d{4}-\d{2}-\d{2}$", cs[0]):
-                    continue
-                key = cs[1] or "历史"
-                seq[key] = seq.get(key, 0) + 1
-                c.execute("INSERT OR IGNORE INTO report(sub_no, date, task_no, role, title, status, body, src) "
-                          "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
-                          ("%s-legacy%d" % (key, seq[key]), cs[0], cs[1], cs[2], cs[3], cs[4],
-                           cs[5] if len(cs) > 5 else "", "legacy/回报队列.md"))
-                n += 1
-            out.append("回报队列.md → report %d 行（历史行正文当年已被截断，无法还原）" % n)
-    legacy = config.BATCH_ROOT / "legacy"
-    legacy.mkdir(parents=True, exist_ok=True)
-    for p in files.values():
-        if p.exists():
-            p.replace(legacy / p.name)
-    out.append("原 md 表格已移入 批阅台/legacy/")
-    return out
 

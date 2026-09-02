@@ -31,42 +31,6 @@ SCHED_STATE = {"busy": False, "tag": "", "at": "", "lastOk": None, "paused": Fal
                "issuedTasks": ""}   # 已生成指令的任务编号串（防 auto_pilot 重复刷指令）
 
 
-def run_r1_job():
-    """R1 调度指令：读待派任务 → 生成「请常驻主会话 R1 拆解派发」指令日志（不 spawn）。"""
-    with SCHED_LOCK:
-        if SCHED_STATE["busy"]:
-            return
-    tasks = [t for t in store.tasks() if t["status"] == "待派"]
-    now = datetime.datetime.now().strftime("%H:%M:%S")
-    if not tasks:
-        SCHED_STATE.update({"busy": False, "tag": "R1-调度(无待派)", "at": now, "lastOk": None})
-        return
-    keys = ",".join(t["no"] for t in tasks[:5])
-    if SCHED_STATE["issuedTasks"] == keys:
-        return                       # 同批任务指令已生成过，不重复刷日志
-    joined = "\n".join("- %s｜%s｜期望 %s" % (t["no"], t["task"], t["expect"]) for t in tasks[:5])
-    kb = str(config.ROOT).replace("\\", "/")
-    text = ("【调度指令 · 待常驻主会话 R1 执行】当前待派任务：\n" + joined +
-            "\n请主会话 R1（本常驻 agent）执行：\n"
-            "1) 读取控制台台账确认待派清单（根目录 %s/，状态见 /api/queue）；\n" % kb +
-            "2) 逐项拆解为子任务（控制台自动执行链会落库并预置产出文件）；\n"
-            "3) 用 DSH subagent 体系派发：每个子任务一次 subagent 调用，prompt 按角色卡注入\n"
-            "   （角色 persona 由派发指令的 prompt 注入，角色卡取本项目 agents/R?.role.md）；\n"
-            "4) 子 agent 边做边把进度追加进《工作区/<角色名称>/T-xxx-Sn.md》，完成后把同名\n"
-            "   .meta.json 的 status 改为 完成/部分/阻塞。")
-    agent.log_schedule("R1-调度指令", text)
-    SCHED_STATE.update({"busy": False, "tag": "R1-调度(指令已生成·待主会话执行)", "at": now,
-                        "lastOk": None, "issuedTasks": keys})
-
-
-def run_child_job(no: str, task_text: str):
-    """手工直派某角色：建台账 → 走同一条执行链（不再有「没有编号的裸回报」）。"""
-    from . import chain
-    task_no = store.add_task(task_text, "手工直派 %s" % no)
-    chain.execute(task_no, "%s %s" % (no, task_text))
-    return task_no
-
-
 def plan_execute() -> dict:
     """按台账里的待派/已派子任务，逐行生成 subagent 派发指令（由主会话 R1 逐个派发）。"""
     rows = [r for r in store.subtasks() if r["st"] in ("", "待派", "已派")]
@@ -121,12 +85,14 @@ def schedule_once():
 
 
 def auto_pilot():
-    """常驻调度守护：轮询台账 + 定时任务触发检查；有待派任务即启动自动执行链。
+    """常驻调度守护：轮询台账 + 定时任务触发检查 + 自动归档；
+    有待派任务即启动自动执行链，子任务完结后自动归档（无需手动点「归档」）。
     轮询间隔见 opc-config.json 的 pollSeconds（默认 8 秒，手改即时生效）。"""
     while True:
         time.sleep(config.tune("pollSeconds"))
         schedule_once()
         scan_once()
+        archive_once()
 
 
 def _title_of(text: str, fallback: str) -> str:
@@ -178,12 +144,32 @@ def r1_archive() -> dict:
             store.set_task(task_no, "完成", "%d/%d 子任务完成" % (len(sts), len(sts)))
             done.append("%s → 任务完成" % task_no)
     out = {"archived": done, "skipped": skipped, "ledger": ledger}
+    if done:
+        agent.log_schedule("R1 自动归档",
+                           "子任务已全部/部分完结，自动归档入库 %d 项：%s" % (len(done), "；".join(done)))
     if ledger:
         lg = config.BATCH_ROOT / ("归档登记-" + datetime.date.today().isoformat() + ".md")
         lg.parent.mkdir(parents=True, exist_ok=True)
         with open(lg, "a", encoding="utf-8") as fh:
             fh.write("\n".join("- " + p for p in ledger) + "\n")
     return out
+
+
+def archive_once():
+    """自动归档（R1 中枢守护）：扫描工作区，出现已完结（完成/部分/阻塞）子任务即归档一次。
+    幂等由 r1_archive 保证：重复扫描/重复调用不会重复入库；执行中的子任务跳过。"""
+    try:
+        for d in _wb_role_dirs():
+            for meta_p in d.glob("*.meta.json"):
+                try:
+                    st = str(json.loads(meta_p.read_text(encoding="utf-8")).get("status") or "").strip()
+                except Exception:
+                    continue
+                if st in ("完成", "部分", "阻塞"):
+                    r1_archive()
+                    return
+    except Exception:
+        pass
 
 
 def rn_outputs(no: str = "") -> list:

@@ -42,11 +42,6 @@ def emit(ev: dict) -> int:
     return _append(ev)
 
 
-def state() -> dict:
-    with _LOCK:
-        return {"seq": _ACTIVE["seq"]}
-
-
 def events(since: int = 0) -> dict:
     """自 since 之后的新事件（前端用返回的 state.seq 作为下次游标）。"""
     with _LOCK:

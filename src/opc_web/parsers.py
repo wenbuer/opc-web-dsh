@@ -45,11 +45,6 @@ def parse_piyuetai(text: str) -> dict:
     return {"pending": pending, "archive": archive}
 
 
-def pending_items() -> list:
-    """快捷读取当前待决清单。"""
-    return parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))["pending"]
-
-
 # ---------- 角色架构 ----------
 def parse_roles() -> list:
     """解析《知识库/OPC智能体角色架构.md》→ 角色清单（编号/名称/职责/产出/详情/状态/当前工作）。"""
@@ -97,33 +92,6 @@ def parse_roles() -> list:
 
 
 # ---------- 决策日志（R0 公文，仍是 md：人读人写） ----------
-def parse_dispatch() -> list:
-    """解析《批阅台/决策日志.md》派发单 → [{role, roleCode, task, ref, target, status, current}]。"""
-    text = knowledge.read_md(config.LOG_REL)
-    lines = text.split("\n")
-    start = None
-    for i, ln in enumerate(lines):
-        if ln.startswith("## 派发单"):
-            start = i
-            break
-    if start is None:
-        return []
-    out = []
-    reRow = re.compile(r"^\|\s*(R\d+)\s+([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|")
-    for ln in lines[start + 1:]:
-        if ln.startswith("## "):
-            break
-        m = reRow.match(ln)
-        if m:
-            task = m.group(3).strip()
-            status = "暂不激活" if ("暂不激活" in task or "未激活" in task) else "执行中"
-            out.append({"role": m.group(1) + " " + m.group(2).strip(),
-                        "roleCode": m.group(1), "task": task,
-                        "ref": m.group(4).strip(), "target": m.group(5).strip(),
-                        "status": status, "current": task[:44]})
-    return out
-
-
 def parse_timeline() -> list:
     """从《批阅台/决策日志.md》生成 OPC 时间线节点。"""
     text = knowledge.read_md(config.LOG_REL)
@@ -147,14 +115,3 @@ def parse_timeline() -> list:
     return events
 
 
-def parse_tasks() -> list:
-    """当前任务清单 = 派发单 + 待批阅项。"""
-    tasks = []
-    for d in parse_dispatch():
-        tasks.append({"type": "派发", "role": d["role"], "task": d["task"],
-                      "ref": d["ref"], "target": d["target"], "status": d["status"]})
-    data = parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
-    for it in data["pending"]:
-        tasks.append({"type": "待批", "role": "R0", "task": "待决 #" + str(it["n"]) + "：" + it["title"],
-                      "ref": "批阅台", "target": "", "status": "待 R0 批阅"})
-    return tasks

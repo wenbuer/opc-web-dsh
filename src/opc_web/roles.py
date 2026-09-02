@@ -51,10 +51,6 @@ def role_files():
             continue
         no = "R" + m.group(1)
         name = config.role_name(no)
-        if name == no:                       # 旧卡无「名称」字段 → 用首行标题兜底
-            head = p.read_text(encoding="utf-8").split("\n", 1)[0]
-            nm = re.match(r"#\s*OPC 角色卡：R\d+\s+(.+)$", head)
-            name = nm.group(1).strip() if nm else no
         out.append((no, name))
     out.sort(key=lambda x: int(x[0][1:]))
     return out
@@ -62,12 +58,6 @@ def role_files():
 
 def next_no():
     return "R%d" % (max([int(no[1:]) for no, _ in role_files()] or [0]) + 1)
-
-
-def _card_name(text: str) -> str:
-    """从角色卡文本提取「名称」字段（不依赖落盘，dry 预览也能取）。"""
-    m = re.search(r"名称\s*[：:]\s*([^｜|\r\n]+)", text)
-    return m.group(1).strip() if m else ""
 
 
 def role_digest(exclude=("R0", "R1")):
@@ -224,19 +214,3 @@ def edit_role(no, name=None, duty=None, position=None, type_=None, dry=False):
     return result
 
 
-if __name__ == "__main__":
-    import sys
-    cmd = sys.argv[1:] if len(sys.argv) > 1 else []
-    if cmd and cmd[0] == "add":
-        kv = {}
-        for i in range(1, len(cmd), 2):
-            kv[cmd[i].lstrip("-")] = cmd[i + 1] if i + 1 < len(cmd) else ""
-        r = add_role(kv.get("name", "新角色"), kv.get("duty", "待补充职责"), kv.get("position", "一句话定位"), kv.get("type", "业务"), dry="--dry" in cmd)
-        print("新增角色 %s %s" % (r["no"], r["name"]))
-        print("  卡: %s" % r["cardPath"])
-        print("  作业区: %s" % r["sbRoot"])
-        if r.get("archLine"):
-            print("  架构登记: " + r["archLine"])
-    else:
-        for no, name in role_files():
-            print("%s %s" % (no, name))
