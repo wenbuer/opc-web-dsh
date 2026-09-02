@@ -830,10 +830,10 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 #btnDirUp,#btnDirPick{padding:4px 12px;font-size:12px;border-radius:6px}
 
 /* ---- 主题切换按钮（右上角） ---- */
-.theme-toggle{margin-left:10px;flex:none;padding:4px 12px;border-radius:6px;border:1px solid var(--line2);
-  background:rgba(125,145,170,.14);color:var(--dim);cursor:pointer;font-size:12px;letter-spacing:1px;
-  transition:border-color .15s,color .15s,background .15s}
-.theme-toggle:hover{border-color:var(--gold);color:var(--gold);background:rgba(125,145,170,.2)}
+.theme-toggle{margin-left:10px;flex:none;padding:4px 13px;border-radius:20px;line-height:1.5;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;font-size:12px;letter-spacing:1px;transition:border-color .15s,color .15s,transform .15s}
+
+
+.theme-toggle:hover{border-color:var(--gold);color:var(--gold);transform:translateY(-1px)}
 
 /* ===== 深色主题覆盖（默认浅色·云白电青 F；[data-theme=dark] 恢复 深海·鎏金）===== */
 :root[data-theme="dark"]{--bg0:#0a0e15; --bg1:#0e1420; --bg2:#131b2b; --panel:#17203a; --panel2:#1d2847;
