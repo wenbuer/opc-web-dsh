@@ -216,8 +216,8 @@ main{flex:1;overflow:hidden}
 .ostatus.red{color:var(--red-bright);border-color:rgba(239,68,68,.5)}
 .ostatus.gold{color:var(--gold);border-color:rgba(2,132,199,.5)}
 .ostatus.off{color:var(--faint);border-color:var(--line)}
-.org-link{text-align:center;font-size:10px;color:var(--faint);letter-spacing:3px;padding:1px 0}
-.org-link::after{content:"▼";display:block;font-size:11px;color:var(--dim)}
+.org-link{text-align:center;font-size:10px;color:var(--faint);letter-spacing:3px;padding:1px 0;line-height:1.6}
+.org-link::after{content:"▼";display:inline-block;font-size:11px;color:var(--dim);margin-left:5px;letter-spacing:0;vertical-align:1px}
 .org-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:4px}
 .role-card{padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;position:relative}
 .role-card .rc-top{display:flex;align-items:center;gap:8px}
@@ -260,8 +260,8 @@ main{flex:1;overflow:hidden}
 .launch-row input{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);padding:11px 14px;border-radius:8px;font-size:13px}
 .launch-btn{padding:11px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid #0ea5e9;background:linear-gradient(135deg,#38bdf8,#0ea5e9 55%,#0284c7);color:#fff;box-shadow:0 3px 12px rgba(2,132,199,.22)}
 .launch-btn:hover{filter:brightness(1.06);box-shadow:0 5px 18px rgba(2,132,199,.35)}
-.launch-state{margin-top:10px;font-size:12px;color:var(--txt)}
-.launch-state .dq-state{background:rgba(99,102,241,.10);border:1px dashed rgba(99,102,241,.4);color:var(--txt);padding:7px 12px;border-radius:8px;display:inline-block}
+.launch-state{margin-top:10px;font-size:12px;color:var(--txt);line-height:1.5}
+.launch-state .dq-state{background:rgba(99,102,241,.10);border:1px dashed rgba(99,102,241,.4);color:var(--txt);padding:7px 12px;border-radius:8px;display:inline-block;max-width:100%;line-height:1.5;vertical-align:middle}
 .launch-state .dq-state.busy{color:var(--gold);border-color:var(--gold)}
 .launch-state .dq-state.ok{color:var(--ok);border-color:var(--ok)}
 .run-mon{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:rgba(15,30,50,.05)}
@@ -639,9 +639,9 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .mapi-row select:focus,.mapi-row input:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(2,132,199,.15)}
 .mapi-row input[type="password"]{letter-spacing:2px}
 .mapi-row.map-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-#btnSaveModelApi,#btnTestModelApi{background:rgba(2,132,199,.06);color:var(--gold);border:1px solid rgba(2,132,199,.55);border-radius:8px;padding:8px 14px;font-size:11.5px;font-weight:600;letter-spacing:.5px;cursor:pointer;transition:all .18s ease}
-#btnSaveModelApi:hover,#btnTestModelApi:hover{background:rgba(2,132,199,.16);border-color:var(--gold);box-shadow:0 0 14px rgba(2,132,199,.25);transform:translateY(-1px)}
-#btnSaveModelApi:active,#btnTestModelApi:active{transform:scale(.98)}
+#btnSaveModelApi,#btnTestModelApi,#btnSchedAdd{background:rgba(2,132,199,.06);color:var(--gold);border:1px solid rgba(2,132,199,.55);border-radius:8px;padding:8px 14px;font-size:11.5px;font-weight:600;letter-spacing:.5px;cursor:pointer;transition:all .18s ease}
+#btnSaveModelApi:hover,#btnTestModelApi:hover,#btnSchedAdd:hover{background:rgba(2,132,199,.16);border-color:var(--gold);box-shadow:0 0 14px rgba(2,132,199,.25);transform:translateY(-1px)}
+#btnSaveModelApi:active,#btnTestModelApi:active,#btnSchedAdd:active{transform:scale(.98)}
 
 /* ===== 作战面板角色卡：删除按钮（右下角，避免与右上状态徽章重叠） ===== */
 .role-card .rc-del{position:absolute;right:8px;top:50%;transform:translateY(calc(-50% + 30px));background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;line-height:1.3;font-weight:600;opacity:.85;transition:all .15s ease}
@@ -731,6 +731,18 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .sched-fld textarea{min-height:64px;resize:vertical}
 .sched-fld-inline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .sched-actions{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+/* 定时任务按钮：＋ 添加 = 与「模型接入」按钮同组（见 #btnSchedAdd 规则，金色描边随主题）；
+   列表启用/停用/删除为描边小按钮（删除悬停红） */
+.sched-ops{display:flex;gap:6px;margin-top:2px;flex-wrap:wrap}
+.sched-ops button{
+  background:rgba(2,132,199,.08);color:var(--gold);
+  border:1px solid rgba(2,132,199,.4);border-radius:6px;
+  padding:3px 10px;font-size:10px;font-weight:600;letter-spacing:.5px;cursor:pointer;
+  transition:all .15s ease;
+}
+.sched-ops button:hover{background:var(--gold);color:#fff;box-shadow:0 0 10px rgba(2,132,199,.35)}
+.sched-ops button:active{transform:scale(.95)}
+.sched-ops .sched-btn-off:hover{background:#ef4444;border-color:#ef4444;color:#fff;box-shadow:0 0 10px rgba(239,68,68,.35)}
 /* 修正 mapi-actions 类名（HTML 是 mapi-actions，旧 CSS 误写 .map-actions） */
 .mapi-row.mapi-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 
@@ -990,8 +1002,8 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 :root[data-theme="dark"] .ostatus.red{color:var(--red-bright);border-color:rgba(231,76,60,.5)}
 :root[data-theme="dark"] .ostatus.gold{color:var(--gold);border-color:rgba(232,183,61,.5)}
 :root[data-theme="dark"] .ostatus.off{color:var(--faint);border-color:var(--line)}
-:root[data-theme="dark"] .org-link{text-align:center;font-size:10px;color:var(--faint);letter-spacing:3px;padding:1px 0}
-:root[data-theme="dark"] .org-link::after{content:"▼";display:block;font-size:11px;color:var(--dim)}
+:root[data-theme="dark"] .org-link{text-align:center;font-size:10px;color:var(--faint);letter-spacing:3px;padding:1px 0;line-height:1.6}
+:root[data-theme="dark"] .org-link::after{content:"▼";display:inline-block;font-size:11px;color:var(--dim);margin-left:5px;letter-spacing:0;vertical-align:1px}
 :root[data-theme="dark"] .org-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:4px}
 :root[data-theme="dark"] .role-card{padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;position:relative}
 :root[data-theme="dark"] .role-card .rc-top{display:flex;align-items:center;gap:8px}
@@ -1027,8 +1039,8 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 :root[data-theme="dark"] .launch-row input{flex:1;min-width:220px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);padding:11px 14px;border-radius:8px;font-size:13px}
 :root[data-theme="dark"] .launch-btn{padding:11px 22px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--gold);background:linear-gradient(135deg,rgba(232,183,61,.16),rgba(232,183,61,.04));color:var(--gold)}
 :root[data-theme="dark"] .launch-btn:hover{background:rgba(232,183,61,.28)}
-:root[data-theme="dark"] .launch-state{margin-top:10px;font-size:12px;color:var(--txt)}
-:root[data-theme="dark"] .launch-state .dq-state{background:rgba(76,110,245,.10);border:1px dashed rgba(76,110,245,.4);color:var(--txt);padding:7px 12px;border-radius:8px;display:inline-block}
+:root[data-theme="dark"] .launch-state{margin-top:10px;font-size:12px;color:var(--txt);line-height:1.5}
+:root[data-theme="dark"] .launch-state .dq-state{background:rgba(76,110,245,.10);border:1px dashed rgba(76,110,245,.4);color:var(--txt);padding:7px 12px;border-radius:8px;display:inline-block;max-width:100%;line-height:1.5;vertical-align:middle}
 :root[data-theme="dark"] .launch-state .dq-state.busy{color:var(--gold);border-color:var(--gold)}
 :root[data-theme="dark"] .launch-state .dq-state.ok{color:var(--ok);border-color:var(--ok)}
 :root[data-theme="dark"] .run-mon{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.18)}
@@ -1331,9 +1343,11 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 :root[data-theme="dark"] .mapi-row select:focus, :root[data-theme="dark"] .mapi-row input:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(232,183,61,.15)}
 :root[data-theme="dark"] .mapi-row input[type="password"]{letter-spacing:2px}
 :root[data-theme="dark"] .mapi-row.map-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-:root[data-theme="dark"] #btnSaveModelApi, :root[data-theme="dark"] #btnTestModelApi{background:rgba(232,183,61,.06);color:var(--gold);border:1px solid rgba(232,183,61,.55);border-radius:8px;padding:8px 14px;font-size:11.5px;font-weight:600;letter-spacing:.5px;cursor:pointer;transition:all .18s ease}
-:root[data-theme="dark"] #btnSaveModelApi:hover, :root[data-theme="dark"] #btnTestModelApi:hover{background:rgba(232,183,61,.16);border-color:var(--gold);box-shadow:0 0 14px rgba(232,183,61,.25);transform:translateY(-1px)}
-:root[data-theme="dark"] #btnSaveModelApi:active, :root[data-theme="dark"] #btnTestModelApi:active{transform:scale(.98)}
+:root[data-theme="dark"] .sched-ops button{background:rgba(232,183,61,.08);border-color:rgba(232,183,61,.4)}
+:root[data-theme="dark"] .sched-ops button:hover{box-shadow:0 0 10px rgba(232,183,61,.35)}
+:root[data-theme="dark"] #btnSaveModelApi, :root[data-theme="dark"] #btnTestModelApi, :root[data-theme="dark"] #btnSchedAdd{background:rgba(232,183,61,.06);color:var(--gold);border:1px solid rgba(232,183,61,.55);border-radius:8px;padding:8px 14px;font-size:11.5px;font-weight:600;letter-spacing:.5px;cursor:pointer;transition:all .18s ease}
+:root[data-theme="dark"] #btnSaveModelApi:hover, :root[data-theme="dark"] #btnTestModelApi:hover, :root[data-theme="dark"] #btnSchedAdd:hover{background:rgba(232,183,61,.16);border-color:var(--gold);box-shadow:0 0 14px rgba(232,183,61,.25);transform:translateY(-1px)}
+:root[data-theme="dark"] #btnSaveModelApi:active, :root[data-theme="dark"] #btnTestModelApi:active, :root[data-theme="dark"] #btnSchedAdd:active{transform:scale(.98)}
 :root[data-theme="dark"] .role-card .rc-del{position:absolute;right:8px;top:50%;transform:translateY(calc(-50% + 30px));background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:7px;padding:3px 8px;font-size:12px;cursor:pointer;line-height:1.3;font-weight:600;opacity:.85;transition:all .15s ease}
 :root[data-theme="dark"] .role-card .rc-del:hover{opacity:1;color:var(--red-bright);border-color:rgba(231,76,60,.6);background:rgba(231,76,60,.1);box-shadow:0 2px 10px rgba(231,76,60,.25);transform:translateY(calc(-50% + 30px)) scale(1.05)}
 :root[data-theme="dark"] .role-card .rc-cur{padding-right:30px}

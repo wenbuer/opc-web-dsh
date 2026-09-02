@@ -219,7 +219,7 @@
             loadBoard();
             liveStart();
             var st = $("dqState");
-            if (st && j.msg) st.textContent = j.msg;
+            if (st && j.msg){ st.className = "dq-state ok"; st.textContent = j.msg; }
           }).catch(function(){ btR.disabled = false; btR.textContent = "↻ 重试"; });
         });
         row.addEventListener("click", function(){ showTaskOutput(t.no, row); });
@@ -300,24 +300,23 @@
       st.textContent = paused ? "恢复执行中…" : "暂停中…";
       post("/api/plan-pause", { action: action }).then(function(r){
         if (r && r.ok){
-          if (paused){ st.textContent = "已恢复 —— 继续按派发单执行"; planExec(); }
-          else { st.textContent = "已暂停：当前行完成后停止，点击按钮继续"; refreshSched(0); }
-        } else { st.textContent = "操作失败：" + (r && r.msg || "未知"); }
+          if (paused){ st.className = "dq-state"; st.textContent = "已恢复 —— 继续按派发单执行"; planExec(); }
+          else { st.className = "dq-state paused"; st.textContent = "已暂停：当前行完成后停止，点击按钮继续"; refreshSched(0); }
+        } else { st.className = "dq-state"; st.textContent = "操作失败：" + (r && r.msg || "未知"); }
       }).catch(function(e){ st.textContent = "异常：" + e.message; });
     }).catch(function(){});
   }
 
   function refreshSched(show){
+    /* 调度引擎状态（空闲/调度中/暂停）只显示一处：标题行右侧 #schedStat（与 ⏸ 暂停按钮同组）。
+       #dqState（下达引导/操作反馈徽章）不再被调度状态覆写，避免出现两个「调度空闲」。 */
     api("/api/scheduler").then(function(j){
-      var st = $("dqState");
-      if (!j || !j.ok){ st.textContent = "调度状态未知"; return; }
+      var ps = $("schedStat");
+      if (!j || !j.ok){ if (ps) ps.textContent = "调度状态未知"; return; }
       var s = j.state || {};
       var txt = s.busy ? "调度中：" + (s.tag || "") + "（后台 headless 执行中）"
         : (s.tag || "调度空闲") + (s.lastOk === true ? " ✓ 完成" : s.lastOk === false ? " ✗ 失败" : "");
-      st.className = "dq-state" + (s.busy ? " busy" : "") + (s.paused ? " paused" : "");
-      st.textContent = (s.paused ? "⏸ " : "") + txt;
-      var ps = $("schedStat");
-      if (ps){ ps.className = st.className; ps.textContent = st.textContent; }
+      if (ps){ ps.className = "dq-state" + (s.busy ? " busy" : "") + (s.paused ? " paused" : ""); ps.textContent = (s.paused ? "⏸ " : "") + txt; }
       var bt = $("btnToggleSched");
       if (bt){ bt.innerHTML = s.paused ? "▶ 恢复执行" : "⏸ 暂停"; }
       if (show){ loadQueue() }
@@ -330,11 +329,11 @@
     var stj = $("dqState");
     if (!v){ if (stj) stj.textContent = "请先填写任务内容"; return; }
     var ex = ($("dqExpect") && $("dqExpect").value.trim()) || "R1 判断";
-    if (stj) stj.textContent = "下达中…";
+    if (stj){ stj.className = "dq-state busy"; stj.textContent = "下达中…"; }
     post("/api/dispatch", { task: v, expect: ex }).then(function(j){
-      if (!j || !j.ok){ if (stj) stj.textContent = "下达失败：" + (j && j.msg || "未知"); return; }
+      if (!j || !j.ok){ if (stj){ stj.className = "dq-state"; stj.textContent = "下达失败：" + (j && j.msg || "未知"); } return; }
       $("dqInput").value = "";
-      if (stj) stj.innerHTML = "已下达 <b>" + esc(j.no) + "</b> —— 全自动流水线：R1 拆解 → subagent 派发各角色 → 回报落库";
+      if (stj){ stj.className = "dq-state busy"; stj.innerHTML = "已下达 <b>" + esc(j.no) + "</b> —— 全自动流水线：R1 拆解 → subagent 派发各角色 → 回报落库"; }
       loadQueue();
       loadBoard();
       pollAuto(j.no);
@@ -351,8 +350,8 @@
         if (row && stj){
           var st = row.status || "";
           var rep = row.report && row.report !== "—" ? String(row.report) : "";
-          if (rep){ stj.innerHTML = "<b>" + esc(no) + "</b> ✅ " + st + " · 回报：" + esc(rep.slice(0, 80)); }
-          else if (st !== seen.st && st){ seen.st = st; stj.innerHTML = "<b>" + esc(no) + "</b> · " + st + "（R1 拆解派发中，主会话开着即自动承接）"; }
+          if (rep){ stj.className = "dq-state ok"; stj.innerHTML = "<b>" + esc(no) + "</b> ✅ " + st + " · 回报：" + esc(rep.slice(0, 80)); }
+          else if (st !== seen.st && st){ seen.st = st; stj.className = "dq-state busy"; stj.innerHTML = "<b>" + esc(no) + "</b> · " + st + "（R1 拆解派发中，主会话开着即自动承接）"; }
         }
         loadQueue();
         if (row && row.report && row.report !== "—" && n2 >= 2){ clearInterval(timer); }
@@ -360,29 +359,27 @@
       }).catch(function(){});
       api("/api/scheduler").then(function(s){
         var el = $("schedStat");
-        var stj = $("dqState");
         if (s && s.ok && s.state){
           var sd = s.state;
           var tag = sd.tag || "";
-          if (el){ el.textContent = (sd.paused ? "⏸ " : "") + (sd.busy ? "调度中 " : "") + tag; el.className = "dq-state" + (sd.busy ? " busy" : "") + (sd.paused ? " paused" : ""); }
-          if (stj && sd.busy){ stj.textContent = tag; stj.className = "dq-state busy"; }
+          if (el){ var t2 = sd.busy ? ("调度中 " + tag) : (tag || "调度空闲"); el.textContent = (sd.paused ? "⏸ " : "") + t2; el.className = "dq-state" + (sd.busy ? " busy" : "") + (sd.paused ? " paused" : ""); }
         }
       }).catch(function(){});
     }, 2500);
   }
 
   function planExec(){
-    $("dqState").textContent = "按派发单启动子任务…";
+    var pe = $("dqState");
+    if (pe){ pe.className = "dq-state"; pe.textContent = "按派发单启动子任务…"; }
     post("/api/plan-execute").then(function(j){
-      if (j && j.ok){ $("dqState").textContent = "派发指令已生成：" + ((j.result || {}).issued || []).join(", "); }
-      else { $("dqState").textContent = "启动失败：" + (j && j.msg || "未知"); }
-    }).catch(function(e){ $("dqState").textContent = "异常：" + e.message; });
+      if (pe){ pe.className = "dq-state" + (j && j.ok ? " ok" : ""); pe.textContent = j && j.ok ? ("派发指令已生成：" + ((j.result || {}).issued || []).join(", ")) : ("启动失败：" + (j && j.msg || "未知")); }
+    }).catch(function(e){ if (pe){ pe.className = "dq-state"; pe.textContent = "异常：" + e.message; } });
   }
   var dqTicking = false;
   function dqTick(){
     if (dqTicking) return; dqTicking = true;
-    var st = $("dqState");
-    if (st && st.className.indexOf("busy") >= 0){ loadQueue() }
+    var sc = $("schedStat");
+    if (sc && sc.className.indexOf("busy") >= 0){ loadQueue() }
     refreshSched(0);
     setTimeout(function(){ dqTicking = false; }, 4000);
   }
