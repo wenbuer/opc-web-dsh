@@ -51,7 +51,7 @@ def run_r1_job():
             "1) 读取控制台台账确认待派清单（根目录 %s/，状态见 /api/queue）；\n" % kb +
             "2) 逐项拆解为子任务（控制台自动执行链会落库并预置产出文件）；\n"
             "3) 用 DSH subagent 体系派发：每个子任务一次 subagent 调用，prompt 按角色卡注入\n"
-            "   （子 agent 自动继承本会话 preset=opc-r1 的体系 persona；具体角色卡取本项目 agents/R?.role.md）；\n"
+            "   （角色 persona 由派发指令的 prompt 注入，角色卡取本项目 agents/R?.role.md）；\n"
             "4) 子 agent 边做边把进度追加进《工作区/<角色名称>/T-xxx-Sn.md》，完成后把同名\n"
             "   .meta.json 的 status 改为 完成/部分/阻塞。")
     agent.log_schedule("R1-调度指令", text)
@@ -76,7 +76,7 @@ def plan_execute() -> dict:
     for r in rows:
         spec = agent.subtask_spec(r["role"], "执行子任务：%s。期望产出：%s。" % (r["sub"], r["expect"]),
                                   expect=r["expect"], sub_no=r["no"])
-        spec_lines.append("- %s → %s（preset %s）：%s" % (r["no"], r["role"], spec["preset"], spec["output"]))
+        spec_lines.append("- %s → %s %s：%s" % (r["no"], r["role"], spec["roleName"], spec["output"]))
     agent.log_schedule("派发单执行指令", "【待常驻主会话 R1 按台账逐行 subagent 派发】\n" + "\n".join(spec_lines))
     return {"issued": [r["no"] + "→" + r["role"] for r in rows], "total": len(store.subtasks())}
 

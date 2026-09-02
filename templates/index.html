@@ -47,9 +47,9 @@
             </div>
             <div class="org-link">调度</div>
             <div class="org-grid" id="orgGrid"></div>
-            <div class="org-node add" id="orgAdd" title="点击打开弹窗，新增角色（自动编号 R10+：角色卡《agents/R?.role.md》 + 工作区《名称/》 + preset 部署）">
+            <div class="org-node add" id="orgAdd" title="点击打开弹窗，新增角色（自动编号 R10+：角色卡《agents/R?.role.md》 + 工作区《名称/》）">
               <span class="oid">＋</span>
-              <div class="obody"><b>新增角色</b><i>自动编号 R10+ · 生成角色卡 + 工作区《名称/》 + preset 部署</i></div>
+              <div class="obody"><b>新增角色</b><i>自动编号 R10+ · 生成角色卡 + 工作区《名称/》</i></div>
               <span class="ostatus gold">＋ 新增</span>
             </div>
           </div>
@@ -181,7 +181,7 @@
               <code>工作区/<角色名称>/</code>（每个角色一个，如 工作区/需求研究员/）·
               <code>知识库/</code>（角色架构 · 索引等档案）。
               端口固定 8901（如需改：改 opc-config.json 的 port 或设环境变量 OPC_PORT 后重启控制台）。
-              <br>角色定义只存在于本项目 <code>agents/</code>（角色卡 + presets-src/），全局 dsh 配置不被写入。</div>
+              <br>角色定义只存在于本项目 <code>agents/</code>（角色卡），全局 dsh 配置不被写入。</div>
           </div>
           <div class="snav-pane" data-pane="model">
             <div class="set-head">大模型 API（模型接入） <em>接入方式同 dsh 模型 API：提供方 → 凭据引用 <code>&lt;ROUTE&gt;_API_KEY</code>（环境变量 / 项目根 .env），密钥不进 opc-config.json 明文；baseURL / 模型可按部署覆盖</em></div>
@@ -251,7 +251,7 @@
   <!-- ===== 新增/编辑角色弹窗（作战面板：完成角色新增与角色卡 ✎ 编辑，自动编号 R10+） ===== -->
   <div class="modal-mask" id="roleModal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><span id="roleModalTitle">＋ 新增角色</span><em id="roleModalHint">自动编号 R10+ · 与「设置 → 角色创建」同一新增流程：角色卡 + 工作区《名称/》 + preset 部署</em><button class="modal-x" id="btnModalClose" title="关闭（Esc）">×</button></div>
+      <div class="modal-head"><span id="roleModalTitle">＋ 新增角色</span><em id="roleModalHint">自动编号 R10+ · 与「设置 → 角色创建」同一新增流程：角色卡 + 工作区《名称/》</em><button class="modal-x" id="btnModalClose" title="关闭（Esc）">×</button></div>
       <div class="form">
         <input id="mRlName" placeholder="名称（必填，web 引用/工作区创建用）">
         <input id="mRlPosition" placeholder="一句话定位">
@@ -259,7 +259,7 @@
         <textarea id="mRlDuty" placeholder="职责（每行一条，回车分隔）"></textarea>
       </div>
       <div class="modal-foot">
-        <button id="btnModalRoleSave">保存（生成角色卡 + 工作区《名称/》 + preset 部署）</button>
+        <button id="btnModalRoleSave">保存（生成角色卡 + 工作区《名称/》）</button>
         <span id="mRoleMsg"></span>
       </div>
     </div>
@@ -268,7 +268,7 @@
   <!-- ===== 删除角色确认弹窗（作战面板角色卡 🗑：二次确认后才调 /api/roles/delete） ===== -->
   <div class="modal-mask" id="delRoleModal" hidden>
     <div class="modal-box">
-      <div class="modal-head"><span>⚠ 确认删除角色</span><em>二次确认 · 删除将移除角色卡 / preset / 工作区 / 架构登记（不可恢复）</em><button class="modal-x" id="btnDelClose" title="取消（Esc）">×</button></div>
+      <div class="modal-head"><span>⚠ 确认删除角色</span><em>二次确认 · 删除将移除角色卡 / 工作区 / 架构登记（不可恢复）</em><button class="modal-x" id="btnDelClose" title="取消（Esc）">×</button></div>
       <div class="del-role-info" id="delRoleInfo"></div>
       <div class="modal-foot">
         <button id="btnDelCancel">取消</button>

@@ -153,9 +153,7 @@ def reload() -> dict:
 
 
 def settings_info() -> dict:
-    """当前生效配置摘要（根目录与三目录状态/角色与 preset 就绪数）。"""
-    preset_home = Path(os.environ.get("OPC_PRESET_HOME") or (Path.home() / ".dsh" / ".agent-presets"))
-    presets_ready = sum(1 for d in preset_home.glob("opc-r?") if (d / "preset.yml").exists()) if preset_home.is_dir() else 0
+    """当前生效配置摘要（根目录与三目录状态 / 角色数）。"""
     return {
         "ok": True,
         "config": {k: _CFG.get(k) for k in SETTING_KEYS},
@@ -166,8 +164,6 @@ def settings_info() -> dict:
         "batchExists": BATCH_ROOT.exists(),
         "workspaceRoot": str(WORKSPACE_ROOT.resolve()) if WORKSPACE_ROOT.exists() else str(WORKSPACE_ROOT),
         "workspaceExists": WORKSPACE_ROOT.exists(),
-        "presetHome": str(preset_home),
-        "presetsReady": presets_ready,
         "model": model_info(),
         "rolesCount": sum(1 for p in AGENTS_DIR.glob("R*.role.md")),
         "envOverride": bool(os.environ.get("OPC_KB_ROOT") or os.environ.get("OPC_CONFIG") or os.environ.get("OPC_PORT")),

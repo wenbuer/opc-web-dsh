@@ -120,14 +120,6 @@ def bootstrap():
     if not config.LOG_FILE.exists():
         config.LOG_FILE.write_text("## R1 调度日志" + h, encoding="utf-8")
         BOOT_LOG.append("创建 " + config.SCHED_LOG_REL)
-    # 角色 preset 资产就绪提示
-    try:
-        from . import agent as _agent
-        n_presets = sum(1 for d in _agent.PRESET_HOME.glob("opc-r?") if (d / "preset.yml").exists()) if _agent.PRESET_HOME.is_dir() else 0
-        if n_presets:
-            BOOT_LOG.append("角色 preset 已就绪：~/.dsh/.agent-presets/ 共 %d 份（opc-r1~opc-r9）—— 调度执行方=常驻主会话 R1（subagent 派发）" % n_presets)
-    except Exception:
-        pass
 
 
 if __name__ == "__main__":

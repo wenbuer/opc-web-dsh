@@ -119,7 +119,7 @@
     });
     /* 原「未激活角色」位已改为固定「＋ 新增角色」入口（orgAdd）：点击弹窗新增角色；
        每张角色卡右上「✎ 编辑角色」弹窗编辑（openRoleModal("edit", code)）。
-       新增/编辑均走 /api/roles/add、/api/roles/edit（角色卡 + 工作区《名称/》 + preset 部署）。 */
+       新增/编辑均走 /api/roles/add、/api/roles/edit（角色卡 + 工作区《名称/》）。 */
   }
 
   function openRole(code){
@@ -885,7 +885,7 @@
     api(path, payload).then(function(jj){
       if (jj && jj.ok){
         var r = jj.result || {};
-        $("roleMsg").textContent = (jj.preview ? "[预览] " : "") + (r.name || r.no || "") + "（" + (r.no || "") + "）已生成/更新：角色卡 + 工作区《" + (r.wsRel || "") + "》 + preset 部署完成。";
+        $("roleMsg").textContent = (jj.preview ? "[预览] " : "") + (r.name || r.no || "") + "（" + (r.no || "") + "）已生成/更新：角色卡 + 工作区《" + (r.wsRel || "") + "》。";
         loadRoles(); cacheRoles(); loadHome();
       }
       else { $("roleMsg").textContent = "失败：" + (jj && jj.msg || "未知"); }
@@ -906,8 +906,8 @@
     var title = $("roleModalTitle"); if (title) title.textContent = (mode === "edit") ? "✎ 编辑角色 " + no : "＋ 新增角色";
     var hint = $("roleModalHint");
     if (hint) hint.textContent = (mode === "edit")
-      ? "保存后重新生成角色卡《agents/" + no + ".role.md》+ 工作区《名称/》 + preset 部署（等同设置页原编辑功能）"
-      : "自动编号 R10+ · 新增流程：角色卡 + 工作区《名称/》 + preset 部署";
+      ? "保存后重新生成角色卡《agents/" + no + ".role.md》与工作区《名称/》"
+      : "自动编号 R10+ · 新增流程：角色卡 + 工作区《名称/》";
     m.dataset.mode = mode; m.dataset.no = no;
     m.hidden = false;
     if (mode === "edit" && no){
@@ -940,11 +940,11 @@
       type: ($("mRlType").value || "").trim()
     };
     if (mode === "edit") payload.no = no;
-    if (msg) msg.textContent = mode === "edit" ? "保存中：重新生成角色卡 + preset 部署…" : "保存中：生成角色卡 + preset 部署…";
+    if (msg) msg.textContent = mode === "edit" ? "保存中：重新生成角色卡…" : "保存中：生成角色卡…";
     post(mode === "edit" ? "/api/roles/edit" : "/api/roles/add", payload).then(function(jj){
       if (jj && jj.ok){
         var r = jj.result || {};
-        if (msg) msg.textContent = (mode === "edit" ? "✓ 已更新 " : "✓ 已创建 ") + (r.name || payload.name) + "（" + (r.no || no) + "）：角色卡 + 工作区《" + (r.wsRel || "") + "》 + preset 部署完成";
+        if (msg) msg.textContent = (mode === "edit" ? "✓ 已更新 " : "✓ 已创建 ") + (r.name || payload.name) + "（" + (r.no || no) + "）：角色卡 + 工作区《" + (r.wsRel || "") + "》";
         loadRoles(); cacheRoles(); loadHome();
         if (mode === "edit" && no){ var ebtn = $("btnEditRole"); if (ebtn && ebtn.dataset.no === no) openRole(no); }
         setTimeout(closeRoleModal, 1600);
@@ -969,7 +969,6 @@
     if (info) info.innerHTML = "<b>" + esc(no) + " · " + esc(name) + "</b>"
       + "<br>确认删除将永久移除："
       + "<br>① 角色卡《agents/" + esc(no) + ".role.md》"
-      + "<br>② preset（源 + ~/.dsh/.agent-presets/opc-" + esc(no.toLowerCase()) + "）"
       + "<br>③ 工作区《工作区/" + esc(name) + "/》"
       + "<br>④ 《知识库/OPC智能体角色架构.md》登记行"
       + "<br><span class='del-warn'>此操作不可恢复，请二次确认。</span>";
@@ -1102,7 +1101,7 @@
     return out.join("");
   }
 
-  /* ================= 设置：目录选择 / 配置保存 / preset 同步 ================= */
+  /* ================= 设置：目录选择 / 配置保存 ================= */
   function loadSettings(){
     var m = $("setMsg");
     api("/api/settings").then(function(j){
@@ -1119,7 +1118,6 @@
       loadSchedules();
 
       var kbSt = $("kbStatus"); if (kbSt) kbSt.innerHTML = "<b>生效根目录：</b>" + esc(j.root || "") + "<br>批阅台" + (j.batchExists === false ? "（未创建，保存后自动生成）" : " ✓") + " · 工作区" + (j.workspaceExists === false ? "（未创建，保存后自动生成）" : " ✓") + " · 知识库" + (j.kbExists === false ? "（未创建，保存后自动生成）" : " ✓");
-      var pi = $("presetInfo"); if (pi) pi.textContent = "项目角色卡 " + (j.rolesCount || 0) + " 张（agents/）｜已部署 preset " + (j.presetsReady || 0) + " 份 → " + (j.presetHome || "");
       if (j.envOverride && m) m.textContent = "⚠ 环境变量（OPC_KB_ROOT/OPC_CONFIG/OPC_PORT）优先于配置文件，此处修改需重启后生效";
       loadRoles();
     }).catch(function(e){ if (m) m.textContent = "异常：" + esc(e.message); });
@@ -1163,16 +1161,6 @@
       } else { if (m) m.textContent = "保存失败：" + esc(j && j.msg || "未知"); }
     }).catch(function(e){ if (m) m.textContent = "异常：" + esc(e.message); });
   }
-  function syncPresets(){
-    var m = $("setMsg"); if (m) m.textContent = "正在重新生成并部署角色 preset…";
-    post("/api/roles/generate", { }).then(function(j){
-      if (j && j.ok){
-        var r = j.result || {};
-        if (m) m.textContent = "✓ 已生成 preset 资产 " + (r.count || 0) + " 个文件；角色：" + ((r.roles || []).join(", ") || "—") + "（已部署源 + ~/.dsh/.agent-presets/）";
-      } else { if (m) m.textContent = "同步失败：" + esc(j && j.msg || "未知"); }
-      loadSettings();
-    }).catch(function(e){ if (m) m.textContent = "异常：" + esc(e.message); });
-  }
   function bindSettings(){
     /* 左侧栏切换（角色创建 / 目录设置 / 模型接入） */
     document.querySelectorAll(".snav-item").forEach(function(item){
@@ -1191,8 +1179,7 @@
       if (k) k.value = ".";
       if (m) m.textContent = "已填入项目根（.）——点「保存配置」即生成 批阅台/工作区/知识库";
     });
-    var sp = $("btnSyncPresets"); if (sp) sp.addEventListener("click", syncPresets);
-    var bm = $("btnSaveModelApi"); if (bm) bm.addEventListener("click", saveModelApi);
+      var bm = $("btnSaveModelApi"); if (bm) bm.addEventListener("click", saveModelApi);
     var bt = $("btnTestModelApi"); if (bt) bt.addEventListener("click", testModelApi);
     var mpv = $("mApiProvider"); if (mpv) mpv.addEventListener("change", modelProviderChanged);
     var sa = $("btnSchedAdd"); if (sa) sa.addEventListener("click", addSched);

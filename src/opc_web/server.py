@@ -364,13 +364,6 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._json({"ok": False, "msg": str(e)}, 500)
             return
-        if url == "/api/roles/generate":
-            try:
-                r = roles.generate_all(force=True)
-                self._json({"ok": True, "result": r})
-            except Exception as e:
-                self._json({"ok": False, "msg": str(e)}, 500)
-            return
         if url != "/api/piyue":
             self._json({"ok": False, "msg": "未知接口"}, 404)
             return

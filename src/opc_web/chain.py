@@ -59,7 +59,7 @@ def decompose(task_no, task_text):
     v1.17 三处修正：
       1. 角色表带上一句话职责 —— 原先只给编号+名称（83 字），模型只能靠名字猜，
          「本周产品动态提纲」该给 R3 内容工厂还是 R6 数据分析官全凭运气；
-      2. 点名只认任务开头 —— 原正则 re.search(r"R(\d+)") 会被「参考 R8 的设计」
+      2. 点名只认任务开头 —— 原正则 re.search(r"R(\\d+)") 会被「参考 R8 的设计」
          「2024 R1 季度」「R2D2 玩具」误命中并直接直派；
       3. 拆不出合法角色不再硬回退 R2 —— 静默错分比明确阻塞更糟。"""
     try:
@@ -91,7 +91,7 @@ def decompose(task_no, task_text):
 def prepare_files(sub_no, task_no, sub, spec):
     """为一个子任务预置产出文件与元数据骨架，返回 (正文路径, 元数据路径)。
 
-    元数据由中枢写全（任务号/角色/preset 中枢本来就知道），子 agent 只回填 status。"""
+    元数据由中枢写全（任务号/角色中枢本来就知道），子 agent 只回填 status。"""
     body = config.ROOT / spec["output"]
     meta = config.ROOT / spec["meta"]
     body.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +104,6 @@ def prepare_files(sub_no, task_no, sub, spec):
         "taskNo": task_no,
         "role": sub["role"],
         "roleName": config.role_name(sub["role"]),
-        "preset": spec["preset"],
         "sub": sub["sub"],
         "expect": sub["expect"],
         "output": spec["output"],
@@ -150,11 +149,11 @@ def execute(task_no, task_text):
                                       expect=s["expect"], sub_no=sub_no)
             prepare_files(sub_no, task_no, s, spec)
             agent.log_schedule("子任务派发指令 %s" % sub_no,
-                "【待常驻主会话 R1 用 DSH subagent 派发】角色 %s（preset %s）\n"
+                "【待常驻主会话 R1 用 DSH subagent 派发】角色 %s %s\n"
                 "子任务：%s\nprompt 注入：%s\n产出文件：%s\n元数据：%s\n"
                 "执行要求：子 agent 边执行边把进度追加进产出文件；完成后把元数据 status "
                 "改为 完成/部分/阻塞。"
-                % (s["role"], spec["preset"], s["sub"], spec["prompt"][:300],
+                % (s["role"], spec["roleName"], s["sub"], spec["prompt"][:300],
                    spec["output"], spec["meta"]))
             store.set_subtask(sub_no, "已派")
             store.open_execution(sub_no, task_no, s["role"])   # 重试开新记录，不覆盖上次
