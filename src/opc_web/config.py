@@ -33,9 +33,39 @@ def _load_cfg() -> dict:
 
 _CFG = _load_cfg()
 
-# 根目录：env OPC_KB_ROOT（兼容旧语义，现即总根）> 配置 root（相对 BASE 或绝对）> 默认 BASE
-_root_s = os.environ.get("OPC_KB_ROOT") or _CFG.get("root") or "."
-ROOT = Path(_root_s).resolve() if os.path.isabs(_root_s) else (BASE / _root_s).resolve()
+# ---------- 项目：一个 opc-web 对应多个 OPC 项目 ----------
+# BASE = 程序目录（代码 + opc-config.json + .env + agents-seed/）
+# ROOT = 当前激活项目的根（agents/ + 批阅台/ + 工作区/ + 知识库/），每个项目完全自包含。
+# 项目以 root 路径为唯一键 —— 项目就是一个目录，不再另造 slug/id 这层概念。
+AGENTS_SEED = BASE / "agents-seed"      # 角色卡模板库：新建项目时复制一份进项目自己的 agents/
+
+
+def projects() -> list:
+    """已登记的项目 [{name, root, schedule}]。"""
+    ps = _CFG.get("projects")
+    return ps if isinstance(ps, list) else []
+
+
+def active_project() -> dict:
+    """当前激活项目；active 指不到就退到第一个，都没有则空 dict。"""
+    ps = projects()
+    want = str(_CFG.get("active") or "")
+    for p in ps:
+        if str(p.get("root") or "") == want:
+            return p
+    return ps[0] if ps else {}
+
+
+def _resolve_root() -> Path:
+    """优先级：env OPC_KB_ROOT > 激活项目 root > 旧字段 root > BASE。"""
+    s = (os.environ.get("OPC_KB_ROOT")
+         or str(active_project().get("root") or "")
+         or str(_CFG.get("root") or "")
+         or ".")
+    return Path(s).resolve() if os.path.isabs(s) else (BASE / s).resolve()
+
+
+ROOT = _resolve_root()
 
 # 三个自动文件夹（相对根目录）
 KB_ROOT = ROOT / "知识库"          # 知识档案（OPC智能体角色架构.md / 知识库索引.md …）
@@ -58,7 +88,8 @@ INDEX_REL = "知识库/知识库索引.md"
 
 TEMPLATES = BASE / "templates"
 STATIC = BASE / "static"
-AGENTS_DIR = BASE / "agents"
+# 角色阵容跟项目走；还没建项目时退回模板库，作战面板不至于空着（此时只读）
+AGENTS_DIR = (ROOT / "agents") if active_project() else AGENTS_SEED
 LOG_FILE = ROOT / SCHED_LOG_REL
 
 HOST = "127.0.0.1"
@@ -140,16 +171,60 @@ def save_cfg(kv: dict) -> dict:
 
 def reload() -> dict:
     """重新读取配置并刷新模块常量（保存后立即生效）。"""
-    global _CFG, ROOT, KB_ROOT, BATCH_ROOT, WORKSPACE_ROOT, LOG_FILE, PORT
+    global _CFG, ROOT, KB_ROOT, BATCH_ROOT, WORKSPACE_ROOT, AGENTS_DIR, LOG_FILE, PORT
     _CFG = _load_cfg()
-    _root_s = os.environ.get("OPC_KB_ROOT") or _CFG.get("root") or "."
-    ROOT = Path(_root_s).resolve() if os.path.isabs(_root_s) else (BASE / _root_s).resolve()
+    ROOT = _resolve_root()
     KB_ROOT = ROOT / "知识库"
     BATCH_ROOT = ROOT / "批阅台"
     WORKSPACE_ROOT = ROOT / "工作区"
+    AGENTS_DIR = (ROOT / "agents") if active_project() else AGENTS_SEED
     LOG_FILE = ROOT / SCHED_LOG_REL
     PORT = int(os.environ.get("OPC_PORT") or _CFG.get("port") or 8901)
     return settings_info()
+
+
+def add_project(name: str, root: str) -> dict:
+    """登记一个项目（目录初始化交给 bootstrap.init_project）；root 已存在则返回原条目。"""
+    root_s = _norm_root(root)
+    for p in projects():
+        if str(p.get("root") or "") == root_s:
+            return p
+    item = {"name": (name or "").strip() or Path(root_s).name, "root": root_s, "schedule": []}
+    _write_cfg({"projects": projects() + [item], "active": root_s})
+    reload()
+    return item
+
+
+def _norm_root(root: str) -> str:
+    """把调用方给的路径归一化成与 projects[] 里一致的形态（resolve + 原生分隔符）。"""
+    r = str(root or "").strip()
+    if not r:
+        raise ValueError("项目路径不能为空")
+    return str(Path(r).resolve() if os.path.isabs(r) else (BASE / r).resolve())
+
+
+def switch_project(root: str) -> dict:
+    """切换激活项目并刷新全部路径常量（ROOT / 三目录 / AGENTS_DIR / LOG_FILE）。"""
+    root_s = _norm_root(root)
+    if not any(str(p.get("root") or "") == root_s for p in projects()):
+        raise ValueError("项目未登记：" + root_s)
+    _write_cfg({"active": root_s})
+    reload()
+    return active_project()
+
+
+def remove_project(root: str) -> dict:
+    """把项目移出登记 —— 只删配置里的条目，项目目录与其中数据一律不动。"""
+    root_s = _norm_root(root)
+    left = [p for p in projects() if str(p.get("root") or "") != root_s]
+    if len(left) == len(projects()):
+        raise ValueError("项目未登记：" + root_s)
+    patch = {"projects": left}
+    if str(_CFG.get("active") or "") == root_s:
+        patch["active"] = str(left[0].get("root")) if left else None
+    _write_cfg(patch)
+    reload()
+    return {"removed": root_s, "left": len(left)}
 
 
 def settings_info() -> dict:
@@ -165,6 +240,10 @@ def settings_info() -> dict:
         "workspaceRoot": str(WORKSPACE_ROOT.resolve()) if WORKSPACE_ROOT.exists() else str(WORKSPACE_ROOT),
         "workspaceExists": WORKSPACE_ROOT.exists(),
         "model": model_info(),
+        "projects": projects(),
+        "activeProject": active_project(),
+        "agentsDir": str(AGENTS_DIR),
+        "seedRoles": sum(1 for p in AGENTS_SEED.glob("R*.role.md")),
         "rolesCount": sum(1 for p in AGENTS_DIR.glob("R*.role.md")),
         "envOverride": bool(os.environ.get("OPC_KB_ROOT") or os.environ.get("OPC_CONFIG") or os.environ.get("OPC_PORT")),
     }
@@ -343,14 +422,25 @@ def model_info() -> dict:
 # 实际执行方 = 常驻主会话 R1（读取队列后拆解派发）。
 
 def load_schedules() -> list:
-    """读取 opc-config.json 的 schedule 段（任务列表）。"""
-    s = _CFG.get("schedule")
+    """当前项目的定时任务（存在 projects[i].schedule —— 不同项目节奏不同）。"""
+    s = active_project().get("schedule")
+    if isinstance(s, list):
+        return s
+    s = _CFG.get("schedule")            # 兼容尚未建项目时的旧顶层字段
     return s if isinstance(s, list) else []
 
 
 def save_schedules(jobs: list) -> None:
-    """把任务列表写回 opc-config.json（不触发 reload，避免重扫目录）。"""
-    _write_cfg({"schedule": jobs or []})
+    """写回当前项目的定时任务（没有项目时退回顶层字段）。"""
+    cur = active_project()
+    if not cur:
+        _write_cfg({"schedule": jobs or []})
+        return
+    ps = [dict(p) for p in projects()]
+    for p in ps:
+        if str(p.get("root") or "") == str(cur.get("root") or ""):
+            p["schedule"] = jobs or []
+    _write_cfg({"projects": ps})
 
 
 def schedule_next(job: dict, now=None) -> object:

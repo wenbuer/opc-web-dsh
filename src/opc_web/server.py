@@ -127,6 +127,9 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": "角色不存在"}, 404)
                 return
             self._json({"ok": True, "no": no, "card": p.read_text(encoding="utf-8")})
+        elif url == "/api/projects":
+            self._json({"ok": True, "projects": config.projects(),
+                        "active": config.active_project(), "seedRoles": config.settings_info()["seedRoles"]})
         elif url == "/api/settings":
             self._json(config.settings_info())
         elif url == "/api/schedule":
@@ -269,6 +272,33 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"ok": False, "msg": str(e)}, 500)
             return
 
+        if url == "/api/projects":
+            # 一个端点三种动作：add / switch / remove（项目以 root 路径为唯一键）
+            try:
+                length = int(self.headers.get("Content-Length", 0))
+                body = json.loads(self.rfile.read(length).decode("utf-8")) if length else {}
+                act = str(body.get("action") or "").strip()
+                root = str(body.get("root") or "").strip()
+                if act in ("switch", "remove") and scheduler.SCHED_STATE.get("busy"):
+                    # 切换会把 ROOT/台账/角色目录整体换掉，执行链跑一半时切会写串项目
+                    self._json({"ok": False, "msg": "当前有任务正在执行，等执行链跑完再切换项目"}, 409)
+                    return
+                if act == "add":
+                    p = config.add_project(str(body.get("name") or ""), root)
+                    bootstrap.bootstrap()          # 建三目录 + 从 agents-seed 复制角色卡
+                    self._json({"ok": True, "project": p, "boot": bootstrap.BOOT_LOG, **config.settings_info()})
+                elif act == "switch":
+                    p = config.switch_project(root)
+                    bootstrap.bootstrap()
+                    self._json({"ok": True, "project": p, "boot": bootstrap.BOOT_LOG, **config.settings_info()})
+                elif act == "remove":
+                    res = config.remove_project(root)
+                    self._json({"ok": True, "result": res, **config.settings_info()})
+                else:
+                    self._json({"ok": False, "msg": "未知动作：" + act}, 400)
+            except Exception as e:
+                self._json({"ok": False, "msg": str(e)}, 400)
+            return
         if url == "/api/settings":
             # 一个端点服务两种保存：模型接入（body.model）与 根目录/端口（SETTING_KEYS）。
             # 原来写成两个同名分支，第二个永远走不到 —— 保存根目录会落进只处理 model 的

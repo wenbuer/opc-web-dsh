@@ -10,6 +10,9 @@
 <div class="shell">
   <header class="topbar">
     <div class="brand"><span class="dot"></span>OPC 指挥中心 <em>作战面板</em></div>
+    <div class="proj-switch" title="当前项目">
+      <select id="projSel" class="proj-sel"><option>加载项目…</option></select>
+    </div>
     <div class="clock" id="clock"></div>
     <div class="statbar">
       <span class="stat seal-red" id="statPending">待裁决 —</span>
@@ -161,27 +164,27 @@
       <div class="settings-layout">
         <aside class="settings-nav">
           <div class="settings-nav-head">⚙ 设置</div>
-          <button class="snav-item" data-snav="dir">① 目录设置</button>
+          <button class="snav-item" data-snav="dir">① 项目</button>
           <button class="snav-item" data-snav="model">② 模型接入</button>
           <button class="snav-item" data-snav="schedule">③ 定时任务</button>
         </aside>
         <div class="settings-main">
           <div class="snav-pane active" data-pane="dir">
-            <div class="set-head">目录设置 <em>只需填一个根目录（写 opc-config.json）；保存后自动生成 批阅台/工作区/知识库 三个文件夹，工作区按角色名称建子文件夹</em></div>
-            <div class="dir-row">
-              <input id="setKbRoot" placeholder="根目录（相对项目根或绝对路径，如 .）">
-              <button id="btnRootDefault" class="mini">📁 项目根默认</button>
-              <span id="kbStatus" class="dir-status"></span>
-              <button id="btnSaveSettings">保存配置</button>
-              <span id="setMsg" class="set-msg"></span>
+            <div class="set-head">项目 <em>一个 opc-web 对应多个 OPC 项目：每个项目一个目录，完全自包含（agents/ 角色阵容 + 批阅台/工作区/知识库 数据）。切换即整体切换，无需重启</em></div>
+            <div class="proj-row">
+              <input id="projName" class="proj-name" placeholder="项目名，如 KeepTalk">
+              <input id="projRoot" class="proj-root" placeholder="项目目录（绝对路径，如 D:/opc/keeptalk）">
+              <button id="btnProjAdd" class="mini">＋ 新建项目</button>
+              <span id="projMsg" class="set-msg"></span>
             </div>
+            <div id="projList" class="proj-list"><div class="placeholder">加载中…</div></div>
             <div class="set-note">
-              <b>目录自动结构</b> 只填一个根目录，保存后自动生成三文件夹：
-              <code>批阅台/</code>（R0/R1 公文：批阅台 · 任务队列 · 派发单 · 回报队列 · 调度日志 · 决策日志）·
-              <code>工作区/<角色名称>/</code>（每个角色一个，如 工作区/需求研究员/）·
-              <code>知识库/</code>（角色架构 · 索引等档案）。
-              端口固定 8901（如需改：改 opc-config.json 的 port 或设环境变量 OPC_PORT 后重启控制台）。
-              <br>角色定义只存在于本项目 <code>agents/</code>（角色卡），全局 dsh 配置不被写入。</div>
+              <b>项目目录结构</b> 新建后自动生成：
+              <code>agents/</code>（从 agents-seed 复制 9 张角色卡，可自行增删）·
+              <code>批阅台/</code>（公文 + SQLite 台账）·
+              <code>工作区/<角色名称>/</code>·
+              <code>知识库/</code>。
+              <br>角色定义在项目内，切换项目 = 换一套角色 + 换一本台账；定时任务也跟项目走。</div>
           </div>
           <div class="snav-pane" data-pane="model">
             <div class="set-head">大模型 API（模型接入） <em>接入方式同 dsh 模型 API：提供方 → 凭据引用 <code>&lt;ROUTE&gt;_API_KEY</code>（环境变量 / 项目根 .env），密钥不进 opc-config.json 明文；baseURL / 模型可按部署覆盖</em></div>

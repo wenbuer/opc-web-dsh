@@ -106,6 +106,8 @@ def role_card(no, name, duty, position, type_="业务"):
 def add_role(name, duty, position, type_="业务", dry=False):
     """新增角色 agent：编号 → 角色卡 → 工作区目录《<角色名称>》→ 角色架构登记。
     dry 只返回预览。角色卡只写本项目 agents/，不写入全局 dsh 配置。"""
+    if not config.active_project():
+        raise ValueError("还没有激活的项目：请先在「设置 → 项目」新建或选择一个项目，再新增角色")
     no = next_no()
     card = role_card(no, name, duty, position, type_)
     wsname = config.sanitize_dir(name)

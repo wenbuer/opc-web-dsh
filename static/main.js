@@ -1102,67 +1102,101 @@
   }
 
   /* ================= 设置：目录选择 / 配置保存 ================= */
+  /* ================= 设置：项目管理（一个 opc-web 对应多个 OPC 项目） ================= */
   function loadSettings(){
-    var m = $("setMsg");
     api("/api/settings").then(function(j){
-      if (!j || !j.ok){ if (m) m.textContent = "读取设置失败：" + esc(j && j.msg || "未知"); return; }
-      var c = j.config || {};
-      var kb = $("setKbRoot"); if (kb) kb.value = c.root || "";
+      if (!j || !j.ok){ var m = $("setMsg"); if (m) m.textContent = "读取设置失败：" + esc(j && j.msg || "未知"); return; }
       var mi = j.model || {};
       var mp = $("mApiProvider"); if (mp) mp.value = mi.provider || "deepseek";
       var ak = $("mApiKey"); if (ak) ak.value = "";
       var ab = $("mApiBase"); if (ab) ab.value = mi.baseURL || "";
       var am = $("mApiModel"); if (am) am.value = mi.model || "";
       var an = $("mApiNote");
-      if (an) an.innerHTML = "<b>接入方式（同 dsh 模型 API）</b> 提供方 <code>" + esc(mi.provider || "deepseek") + "</code> → 凭据引用 <code>" + esc(mi.apiKeyEnv || "") + "</code><br>密钥状态：" + (mi.configured ? "已配置 <code>" + esc(mi.keyMasked || "") + "</code>" : "<span style='color:var(--red-bright)'>未配置</span>，保存密钥后写入项目根 <code>.env</code>，dsh 会话 / subagent 即可继承") + "<br>baseURL：" + esc(mi.baseURL || "（按提供方默认）") + " · 模型：" + esc(mi.model || "（按提供方默认）") + " · 环境文件 <code>" + esc(mi.envFile || "") + "</code>";
+      if (an) an.innerHTML = "<b>接入方式（同 dsh 模型 API）</b> 提供方 <code>" + esc(mi.provider || "deepseek") + "</code> → 凭据引用 <code>" + esc(mi.apiKeyEnv || "") + "</code><br>密钥状态：" + (mi.configured ? "已配置 ✓" : "未配置 — 密钥只写项目根 .env，不回显");
+      if (j.envOverride && j.activeProject && $("setMsg")) $("setMsg").textContent = "⚠ 环境变量（OPC_KB_ROOT/OPC_CONFIG/OPC_PORT）优先于配置，请直接手改 opc-config.json";
       loadSchedules();
-
-      var kbSt = $("kbStatus"); if (kbSt) kbSt.innerHTML = "<b>生效根目录：</b>" + esc(j.root || "") + "<br>批阅台" + (j.batchExists === false ? "（未创建，保存后自动生成）" : " ✓") + " · 工作区" + (j.workspaceExists === false ? "（未创建，保存后自动生成）" : " ✓") + " · 知识库" + (j.kbExists === false ? "（未创建，保存后自动生成）" : " ✓");
-      if (j.envOverride && m) m.textContent = "⚠ 环境变量（OPC_KB_ROOT/OPC_CONFIG/OPC_PORT）优先于配置文件，此处修改需重启后生效";
       loadRoles();
-    }).catch(function(e){ if (m) m.textContent = "异常：" + esc(e.message); });
+      loadProjects();
+    }).catch(function(e){ var m = $("setMsg"); if (m) m.textContent = "异常：" + esc(e.message); });
   }
-  function browseDirs(path){
-    var box = $("dirList"); if (!box) return;
-    box.innerHTML = "<div class='placeholder'>浏览中…</div>";
-    api("/api/dirs?path=" + encodeURIComponent(path || "")).then(function(j){
-      if (!j || !j.ok){ box.innerHTML = "<div class='placeholder'>" + esc(j && j.msg || "无法浏览") + "</div>"; return; }
-      state.lastDirPath = j.path || "";
-      var dp = $("dirPath"); if (dp) dp.textContent = "当前：" + esc(j.path);
-      box.innerHTML = "";
-      var list = j.dirs || [];
-      if (!list.length){ box.innerHTML = "<div class='placeholder'>（无子目录——用「🔼 上级」或输入父路径前往）</div>"; }
-      list.forEach(function(d){
-        var el = document.createElement("div");
-        el.className = "dir-item";
-        el.innerHTML = "<span class='dicon'>📁</span><span class='dname'>" + esc(d) + "</span><button class='mini enter'>进入</button><button class='mini pick'>选为根目录</button>";
-        el.querySelector(".enter").addEventListener("click", function(){ browseDirs(j.path + "/" + d); });
-        el.querySelector(".pick").addEventListener("click", function(){
-          var k = $("setKbRoot"); if (k) k.value = j.path + "/" + d;
-          var mm = $("setMsg"); if (mm) mm.textContent = "已填入根目录：" + j.path + "/" + d + "（保存后自动生成 批阅台/工作区/知识库）";
+  function loadProjects(){
+    api("/api/projects").then(function(j){
+      if (!j || !j.ok) return;
+      var box = $("projList");
+      if (!box) return;
+      var list = j.projects || [];
+      var active = (j.active || {}).root || "";
+      var seed = j.seedRoles || 0;
+      if (!list.length){
+        box.innerHTML = "<div class='placeholder'>还没有项目 —— 在右侧填入项目名 + 目录，点「＋ 新建项目」（首个会自动激活，角色阵容从 agents-seed 复制 " + seed + " 张卡）</div>";
+      } else {
+        box.innerHTML = "";
+        list.forEach(function(p){
+          var el = document.createElement("div");
+          el.className = "proj-item" + (p.root === active ? " active" : "");
+          el.innerHTML = "<span class='pj-name'>" + esc(p.name || "") + "</span>"
+            + "<span class='pj-root'>" + esc(p.root || "") + "</span>"
+            + "<em class='pj-st'>" + (p.root === active ? "● 当前" : "") + "</em>"
+            + (p.root !== active
+                ? "<button class='mini pj-use'>切换</button>"
+                : "<button class='mini pj-rm danger' title='只移出登记，不删任何数据'>移除</button>");
+          var use = el.querySelector(".pj-use");
+          if (use) use.addEventListener("click", function(){ projectAction("switch", p.root, ""); });
+          var rm = el.querySelector(".pj-rm");
+          if (rm) rm.addEventListener("click", function(){
+            if (confirm("把项目「" + (p.name || "") + "」移出登记？项目目录与其中的数据不会删除。")) projectAction("remove", p.root, "");
+          });
+          box.appendChild(el);
         });
-        box.appendChild(el);
-      });
-    }).catch(function(e){ box.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
+      }
+      renderProjectSwitcher(list, active);
+    }).catch(function(){});
   }
-  function saveSettings(){
-    var map = { setKbRoot: "root" };
-    var payload = { };
-    for (var id in map){ var el = $(id); var v = (el && el.value.trim()) || ""; if (v) payload[map[id]] = v; }
-    if (!payload.root){ var m2 = $("setMsg"); if (m2) m2.textContent = "请先填写根目录（或点「📁 项目根默认」）"; return; }
-
-    var m = $("setMsg"); if (m) m.textContent = "保存中…";
-    post("/api/settings", payload).then(function(j){
-      if (j && j.ok){
-        var boot = (j.boot || []).map(function(b){ return "· " + b; }).join(" ");
-        if (m) m.textContent = "✓ 已写入 opc-config.json 并生效" + (j.msg ? "｜" + j.msg : "") + (boot ? "｜" + boot : "");
-        loadSettings();
-        loadHome();
-      } else { if (m) m.textContent = "保存失败：" + esc(j && j.msg || "未知"); }
+  function renderProjectSwitcher(list, active){
+    var sel = $("projSel");
+    if (!sel) return;
+    sel.innerHTML = "";
+    if (!list.length){
+      var o0 = document.createElement("option");
+      o0.textContent = "（未建项目 · 去设置）";
+      sel.appendChild(o0);
+      return;
+    }
+    list.forEach(function(p){
+      var o = document.createElement("option");
+      o.value = p.root || "";
+      o.textContent = p.name || p.root || "";
+      o.selected = p.root === active;
+      sel.appendChild(o);
+    });
+  }
+  function addProject(){
+    var m = $("projMsg");
+    var name = ($("projName").value || "").trim();
+    var root = ($("projRoot").value || "").trim().replace(/\\/g, "/");   // Windows 反斜杠 → /，否则 JSON 转义崩
+    if (!root){ if (m) m.textContent = "项目目录必填（绝对路径，如 D:/opc/keeptalk）"; return; }
+    if (m) m.textContent = "创建中…";
+    projectAction("add", root, name);
+  }
+  function projectAction(action, root, name){
+    var m = $("projMsg");
+    root = String(root || "").replace(/\\/g, "/");   // 同上：统一正斜杠进 JSON
+    post("/api/projects", { action: action, root: root, name: name }).then(function(j){
+      if (!j || !j.ok){
+        if (m) m.textContent = (action === "switch" ? "切换失败" : action === "add" ? "新建失败" : "移除失败") + "：" + esc(j && j.msg || "未知");
+        return;
+      }
+      if (m) m.textContent = action === "add" ? "✓ 项目已创建并激活" : action === "switch" ? "✓ 已切换到 " + esc((j.project || {}).name || "") : "✓ 已移出登记";
+      ["projName","projRoot"].forEach(function(id){ var el = $(id); if (el) el.value = ""; });
+      loadProjects();
+      loadSettings();
+      loadHome();
+      loadQueue();
+      loadBoard();
     }).catch(function(e){ if (m) m.textContent = "异常：" + esc(e.message); });
   }
+
   function bindSettings(){
-    /* 左侧栏切换（角色创建 / 目录设置 / 模型接入） */
     document.querySelectorAll(".snav-item").forEach(function(item){
       item.addEventListener("click", function(){
         var k = item.getAttribute("data-snav");
@@ -1173,20 +1207,20 @@
         if (pane) pane.classList.add("active");
       });
     });
-    var bs = $("btnSaveSettings"); if (bs) bs.addEventListener("click", saveSettings);
-    var bd = $("btnRootDefault"); if (bd) bd.addEventListener("click", function(){
-      var k = $("setKbRoot"), m = $("setMsg");
-      if (k) k.value = ".";
-      if (m) m.textContent = "已填入项目根（.）——点「保存配置」即生成 批阅台/工作区/知识库";
-    });
-      var bm = $("btnSaveModelApi"); if (bm) bm.addEventListener("click", saveModelApi);
+    var ps = $("projSel");
+    if (ps && !ps.dataset.bound){
+      ps.dataset.bound = "1";
+      ps.addEventListener("change", function(){
+        if (ps.value) projectAction("switch", ps.value, "");
+      });
+    }
+    var pa = $("btnProjAdd"); if (pa) pa.addEventListener("click", addProject);
+    var bm = $("btnSaveModelApi"); if (bm) bm.addEventListener("click", saveModelApi);
     var bt = $("btnTestModelApi"); if (bt) bt.addEventListener("click", testModelApi);
     var mpv = $("mApiProvider"); if (mpv) mpv.addEventListener("change", modelProviderChanged);
     var sa = $("btnSchedAdd"); if (sa) sa.addEventListener("click", addSched);
-
   }
 
-  /* ================= 设置：定时任务（到点下达队列，由常驻主会话 R1 执行） ================= */
   function schedDesc(j){
     var d = ["周一","周二","周三","周四","周五","周六","周日"];
     if (j.mode === "interval") return "每 " + (j.intervalMin || "—") + " 分钟一次";

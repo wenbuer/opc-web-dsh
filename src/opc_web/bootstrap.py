@@ -92,8 +92,29 @@ def _migrate_legacy():
     BOOT_LOG.append("旧结构迁移完成 → 三目录模型（批阅台/工作区/知识库）")
 
 
+def init_agents():
+    """项目自己的 agents/：为空时从 agents-seed 复制一份。
+
+    角色阵容跟项目走 —— 一个项目要「内容工厂」，另一个要「投研分析师」，
+    两边互不干扰。没有激活项目时 AGENTS_DIR 指向模板库本身，不复制。"""
+    if not config.active_project():
+        return
+    d = config.AGENTS_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    if any(d.glob("R*.role.md")):
+        return
+    n = 0
+    for p in sorted(config.AGENTS_SEED.glob("R*.role.md")):
+        shutil.copy2(p, d / p.name)
+        n += 1
+    if n:
+        BOOT_LOG.append("角色卡初始化：从 agents-seed 复制 %d 张 → %s" % (n, d))
+
+
 def bootstrap():
+    BOOT_LOG.clear()          # 只报本次，不累积历史
     _migrate_legacy()
+    init_agents()
     for ln in store.migrate_md_tables():      # 退役 md 表格 → SQLite 台账（一次性、幂等）
         BOOT_LOG.append("台账迁移：" + ln)
     for d in (config.BATCH_ROOT, config.WORKSPACE_ROOT, config.KB_ROOT):

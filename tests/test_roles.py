@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""角色管理自检：角色列表 / 自动编号 / 角色卡组装 / 新增角色(dry)"""
+"""角色管理自检：角色列表 / 自动编号 / 角色卡组装 / 新增角色(dry) / 项目守卫"""
+import shutil
 import sys
 import unittest
 from pathlib import Path
@@ -24,12 +25,32 @@ class TestRolesCore(unittest.TestCase):
         self.assertIn("<子任务编号>.md", card)
         self.assertIn("status 改为 完成/部分/阻塞", card)
 
+    def test_add_role_needs_active_project(self):
+        """没有激活项目时必须拒绝 —— 否则角色卡会写进 agents-seed 模板库，污染所有新项目。"""
+        if config.active_project():
+            self.skipTest("当前已有激活项目")
+        with self.assertRaises(ValueError):
+            roles.add_role("演示角色", "演示职责", "演示定位", "业务", dry=True)
+
     def test_add_role_dry_no_side_effect(self):
-        before = len(list(config.AGENTS_DIR.glob("R*.role.md")))
-        r = roles.add_role("演示角色", "演示职责", "演示定位", "业务", dry=True)
-        self.assertEqual(r["no"], "R10")
-        after = len(list(config.AGENTS_DIR.glob("R*.role.md")))
-        self.assertEqual(before, after, 'dry 不应落盘角色卡')
+        """dry 预览不落盘（在临时项目里跑，不碰模板库）。"""
+        tmp = Path(__file__).resolve().parent.parent / ".testproj"
+        shutil.rmtree(tmp, ignore_errors=True)
+        keep = (dict(config._CFG), config.ROOT, config.AGENTS_DIR)
+        config._CFG = {"projects": [{"name": "t", "root": str(tmp), "schedule": []}], "active": str(tmp)}
+        config.ROOT = tmp
+        config.AGENTS_DIR = tmp / "agents"
+        config.AGENTS_DIR.mkdir(parents=True, exist_ok=True)
+        for p in config.AGENTS_SEED.glob("R*.role.md"):
+            shutil.copy2(p, config.AGENTS_DIR / p.name)
+        try:
+            before = len(list(config.AGENTS_DIR.glob("R*.role.md")))
+            r = roles.add_role("演示角色", "演示职责", "演示定位", "业务", dry=True)
+            self.assertEqual(r["no"], "R10")
+            self.assertEqual(before, len(list(config.AGENTS_DIR.glob("R*.role.md"))), "dry 不应落盘角色卡")
+        finally:
+            config._CFG, config.ROOT, config.AGENTS_DIR = keep
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class TestConfigFile(unittest.TestCase):
