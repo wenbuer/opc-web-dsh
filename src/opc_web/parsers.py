@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """知识库 md 解析器：批阅台 / 角色架构 / 派发单 / 决策日志 / 时间线 / 任务清单。"""
+import datetime
 import re
 
 from . import config, knowledge, store
@@ -112,7 +113,15 @@ def parse_timeline() -> list:
     """从《批阅台/决策日志.md》生成 OPC 时间线节点。"""
     text = knowledge.read_md(config.LOG_REL)
     lines = text.split("\n")
-    events = [{"date": "2026-08-24", "title": "OPC 建立（启动日）",
+    # 项目建立日：取《决策日志.md》/项目根的创建时间（不再写死），回退今天。
+    start = datetime.date.today().isoformat()
+    for _p in (config.ROOT / config.LOG_REL, config.ROOT):
+        try:
+            start = datetime.datetime.fromtimestamp(_p.stat().st_ctime).date().isoformat()
+            break
+        except Exception:
+            continue
+    events = [{"date": start, "title": "OPC 建立（启动日）",
                "detail": "角色架构 v1.0、知识库索引、批阅台、决策日志、简报模板、需求假设清单 25 条落地"}]
     reD = re.compile(r"^##\s+D-\d+｜(.+?)（(\d{4}-\d{2}-\d{2})")
     reC = re.compile(r"^-\s*\*\*裁决内容\*\*[:：]\s*(.+)$")
