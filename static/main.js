@@ -1364,9 +1364,8 @@
   bindDelRoleModal();
 
   function loadDaily(){
-    api("/api/summary").then(function(j){
+    api("/api/daily").then(function(j){
       if (!j || !j.ok) return;
-      refreshStats(j);
       state.daily = j.daily || [];
       var box = $("dailyFiles");
       box.innerHTML = "";

@@ -98,8 +98,7 @@ class Handler(BaseHTTPRequestHandler):
     def _get_summary(self):
         data = parsers.parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
         return {"ok": True, "pendingCount": len(data["pending"]),
-                "workCount": len(data["work"]), "archiveCount": len(data["archive"]),
-                "daily": knowledge.latest_daily()}
+                "workCount": len(data["work"]), "archiveCount": len(data["archive"])}
 
     def _get_ws_file(self):
         rel = unquote(self._qs().get("rel", [""])[0]).strip()
@@ -196,6 +195,9 @@ class Handler(BaseHTTPRequestHandler):
         return {"ok": True, "name": name, "installed": True,
                 "msg": "已导入「" + name + "」到技能库", "skills": self._get_dsh_skills()["skills"]}
 
+    def _get_daily(self):
+        return {"ok": True, "daily": knowledge.latest_daily()}
+
     def _get_events(self):
         since = int(self._qs().get("since", ["0"])[0] or 0)
         return runner.events(since)
@@ -260,6 +262,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json(config.list_dirs(path))
         elif url == "/api/run/events":
             self._ok(self._get_events)
+        elif url == "/api/daily":
+            self._ok(self._get_daily)
         else:
             self._json({"ok": False, "msg": "未知接口"}, 404)
 
