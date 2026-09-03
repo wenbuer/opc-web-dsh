@@ -127,6 +127,25 @@ def parse_timeline() -> list:
                     detail = cm.group(1).strip()[:90]
                     break
             events.append({"date": m.group(2), "title": title[:32], "detail": detail})
+    # 并入「日报」时间线节点：产生《批阅台/每日简报-*.md》即出现一个节点；
+    # 同一天只保留一条（与前面的日报节点合并），避免重复生成时累积多条。
+    seen = {(e.get("date"), e.get("title")) for e in events}
+    try:
+        for p in sorted(config.BATCH_ROOT.glob("每日简报-*.md")):
+            dm = re.search(r"(\d{4}-\d{2}-\d{2})", p.name)
+            date = dm.group(1) if dm else ""
+            detail = ""
+            try:
+                detail = config.read_text(p).split("\n")[0].strip()[:90]
+            except Exception:
+                detail = ""
+            detail = detail or "当日各角色回报汇总"
+            key = (date, "日报")
+            if date and key not in seen:
+                events.append({"date": date, "title": "日报", "detail": detail})
+                seen.add(key)
+    except Exception:
+        pass
     events.sort(key=lambda x: x["date"])
     return events
 
