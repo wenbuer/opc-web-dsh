@@ -470,18 +470,22 @@ class Handler(BaseHTTPRequestHandler):
         if not item:
             raise ApiError(400, "缺少待决编号")
         new_line = review.write_piyue(item, judge, opinion)
-        # R0 采纳（批准）→ R1 自动在任务队列新建执行任务（等同在 工作台下达），
-        # 并在该待决条目记录 R1 执行状态；驳回/修改不建新任务。
+        # R0 批阅后，R1 一律重新派发执行：批准→执行决策；驳回/修改→按批注修改后重报，直到批准。
         extra = {}
-        if review.verb_of(judge) == "批准":
-            try:
+        try:
+            verb = review.verb_of(judge)
+            if verb == "批准":
                 task_text = "执行 R0 决策（批阅台 待决 #%s）：%s" % (item, opinion or "按批阅意见执行")
-                no = store.add_task(task_text, "R1 判断")
-                review.append_r1_exec(item, "已建任务 %s，待 R1 派发执行" % no)
-                scheduler.scan_once()   # 立即生成 R1 拆解指令（与下达任务同路径）
-                extra = {"task": no}
-            except Exception:
-                extra = {"task": None}
+                note = "已建任务 %s，待 R1 派发执行"
+            else:
+                task_text = "按批阅修改（批阅台 待决 #%s，%s）：%s" % (item, verb, opinion or "按批注修改后重报")
+                note = "已按批注重新派发执行 %s"
+            no = store.add_task(task_text, "R1 判断")
+            review.append_r1_exec(item, note % no)
+            scheduler.scan_once()   # 立即生成 R1 拆解指令（与下达任务同路径）
+            extra = {"task": no}
+        except Exception:
+            extra = {"task": None}
         return {"ok": True, "line": new_line, "item": item, **extra}
 
     def do_POST(self):
