@@ -15,7 +15,7 @@ import re
 import threading
 import time
 
-from . import agent, config, store
+from . import agent, config, runner, store
 
 
 def _wb_role_dirs():
@@ -395,6 +395,82 @@ def work_summary(task_no: str) -> str:
         return None
 
 
+
+def _headless_text(prompt: str, timeout: float = 600) -> str:
+    """尝试用 dsh headless 让 R1 做文本类收尾（汇总/抽取）；失败返回空串。"""
+    try:
+        text, _ = runner.run_headless_task(prompt, timeout)
+        return (text or "").strip()
+    except Exception:
+        return ""
+
+def _digest_reps(reps, limit: int = 900) -> str:
+    """回报正文 → 单行摘要（供模型汇总/抽取，控制长度）。"""
+    out = []
+    for r in reps:
+        body = str(r.get("body") or "").strip()
+        one = re.sub(r"[ \t]+", " ", body)[:limit]
+        out.append("【%s｜%s】（%s）：%s" % (r.get("task_no") or "?", r.get("role") or "?", r.get("status") or "?", one))
+    return "\n".join(out)
+
+def build_daily_report(datestr: str = None) -> dict:
+    """汇总当日各角色回报，生成《批阅台/每日简报-<date>.md》；当日无回报则跳过。"""
+    datestr = datestr or datetime.date.today().isoformat()
+    reps = [r for r in store.reports() if (r.get("date") or "") == datestr]
+    if not reps:
+        return {"ok": True, "created": False, "msg": "当日无任务回报，不生成简报"}
+    target = config.BATCH_ROOT / ("每日简报-%s.md" % datestr)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    digest = _digest_reps(reps)
+    prompt = ("你是老板助理 R1。请把今天的各角色回报汇总成一份《每日简报》，输出 markdown："
+              "含当日概况、按任务分组的进展与结论、待办 / 风险提示。只给正文，不要寒暄。\n\n今日回报：\n%s"
+              % digest)
+    text = _headless_text(prompt, 600)
+    if not text:
+        # 降级：按任务 / 角色拼接回报摘要，保证有产出
+        tno = "、".join(sorted({str(r.get("task_no") or "") for r in reps})) or "—"
+        lines = ["# 每日简报（%s）" % datestr, "", "## 当日概况",
+                 "当日共 %d 条角色回报，覆盖任务：%s。" % (len(reps), tno)]
+        for r in reps:
+            lines += ["", "### %s｜%s（%s）" % (r.get("task_no") or "?", r.get("role") or "?", r.get("status") or "?"),
+                      str(r.get("body") or "").strip()[:800]]
+        text = "\n".join(lines) + "\n"
+    target.write_text(text.strip() + "\n", encoding="utf-8")
+    return {"ok": True, "created": True, "file": target.name, "rel": target.relative_to(config.ROOT).as_posix()}
+
+def kb_digest(task_no: str) -> dict:
+    """从任务回报中抽取值得沉淀的知识，写入《知识库/<task_no>-沉淀.md》并登记《知识库索引.md》。"""
+    reps = store.reports(task_no)
+    if not reps:
+        return {"ok": True, "created": False, "msg": "该任务无回报，跳过知识沉淀"}
+    kb = config.KB_ROOT
+    kb.mkdir(parents=True, exist_ok=True)
+    name = "%s-沉淀.md" % task_no
+    target = kb / name
+    digest = _digest_reps(reps, limit=1200)
+    prompt = ("你是老板助理 R1。请从以下任务回报中抽取值得沉淀为知识库档案的内容，输出 markdown："
+              "每条知识给「标题 + 要点」，聚焦可复用结论 / 方法 / 数据，忽略过程性铺陈。"
+              "若无可沉淀内容，输出「无可沉淀内容」。\n\n任务 %s 回报：\n%s" % (task_no, digest))
+    text = _headless_text(prompt, 600)
+    if not text or "无可沉淀内容" in text:
+        # 降级：把回报正文归档留档
+        lines = ["# %s 产出沉淀（自动归档）" % task_no]
+        for r in reps:
+            lines += ["", "### %s（%s）" % (r.get("role") or "?", r.get("status") or "?"),
+                      str(r.get("body") or "").strip()]
+        text = "\n".join(lines) + "\n"
+    target.write_text(text.strip() + "\n", encoding="utf-8")
+    # 登记《知识库索引.md》
+    try:
+        idx = config.ROOT / config.INDEX_REL
+        idx.parent.mkdir(parents=True, exist_ok=True)
+        cur = config.read_text(idx) if idx.exists() else "# 知识库索引"
+        if name not in cur:
+            with open(idx, "a", encoding="utf-8") as fh:
+                fh.write("- [%s](知识库/%s)\n" % (name, name))
+    except Exception:
+        pass
+    return {"ok": True, "created": True, "file": name, "rel": "知识库/" + name}
 
 def piyue_report(task_no: str, task_text: str, ok_cnt: int, total: int, fail: list) -> int:
     """任务自动执行完成后：R1 整理回报呈报 R0。

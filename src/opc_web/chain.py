@@ -248,6 +248,16 @@ def execute(task_no, task_text):
             if piyue_no:
                 runner.emit({"type": "assistant/chunk",
                              "data": {"text": "📤 回报已整理并呈报 R0：批阅台 待决 #%d（可到批阅台 批准/驳回/修改）" % piyue_no}})
+        # R1 自动收尾：汇总当日日报 + 从产出提炼知识库（失败不阻断主流程）
+        try:
+            sch.kb_digest(task_no)
+        except Exception:
+            pass
+        try:
+            sch.build_daily_report()
+        except Exception:
+            pass
+
         if not fail:
             store.set_task(task_no, "完成", "%d/%d 子任务完成" % (ok_cnt, total))
             set_state(lastOk=True, tag="任务 %s 完成：%d/%d" % (task_no, ok_cnt, total))
