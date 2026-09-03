@@ -1195,7 +1195,7 @@
       if (t.indexOf("## ") === 0){ seg = t.slice(3); return; }
       if (seg === "身份"){
         if (t.indexOf("- 编号：") === 0){ t.slice(4).split("｜").forEach(function(p){ var kv = p.split("："); if (kv[0] === "编号") o.no = kv[1] || ""; if (kv[0] === "名称") o.name = kv[1] || ""; if (kv[0] === "类型") o.type = kv[1] || ""; }); }
-        else if (t.indexOf("- 一句话定位：") === 0) o.position = t.slice(7).split("（")[0];
+        else if (t.indexOf("- 一句话定位：") === 0) o.position = t.slice(t.indexOf("：") + 1).split("（")[0];
       }
       else if (seg === "职责" && t.indexOf("- ") === 0) o.duty.push(t.slice(2));
       else if (seg === "技能" && t.indexOf("- ") === 0){
