@@ -1,7 +1,6 @@
 # OPC 智能体工作台（opc-web）
 
-> 一个人也能开一家公司。这个页面就是那家公司的**日常指挥台**：你在浏览器里下个任务，R1 帮你把活拆开、分给 R2~R9 几个 AI 角色去干，干完 R0 拍板、然后归档入库。
-> 控制台只管「下达和记录」，真正干活的是常驻主会话 R1 和各角色 subagent —— **你当老板，AI 当员工。**
+> 这是一个**本地运行的「AI 一人公司」指挥台**（开源 Web 应用）：把老板 R0、助理 R1、业务角色 R2~R9 这一整套 AI 员工装进一个浏览器页面。你在页面上给活，AI 自己拆任务、分工去干、回传结果，经你批阅后自动归档——**你只负责拍板，AI 当员工，一个人也能把公司开起来。**
 
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![python deps](https://img.shields.io/badge/python%20deps-0%20pip%20packages-brightgreen.svg)](pyproject.toml)
