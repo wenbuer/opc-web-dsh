@@ -351,6 +351,7 @@ main{flex:1;overflow:hidden}
 .role-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0;overflow-y:auto;min-height:0}
 .role-detail{max-height:560px;overflow:auto;margin-top:10px;border:1px dashed var(--line2);border-radius:8px;background:rgba(15,30,50,.05);padding:12px 14px}
 .role-detail .placeholder{color:var(--faint);font-size:11px}
+.role-pane.skills .placeholder,.role-pane.files .placeholder{padding:2px 0;text-align:left;line-height:1.7}
 .role-card-doc h1{font-size:15px;color:var(--gold);margin:0 0 8px}
 .role-card-doc h2{font-size:13px;color:var(--gold);margin:10px 0 4px}
 .role-card-doc h3{font-size:12px;color:var(--gold);margin:8px 0 4px}
