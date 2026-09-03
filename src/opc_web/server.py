@@ -289,13 +289,19 @@ class Handler(BaseHTTPRequestHandler):
         if not hit:
             raise ApiError(404, "任务 " + no + " 不在队列中")
         retried = False
-        if hit[0]["status"] == "阻塞":
+        if hit[0]["status"] in ("阻塞", "部分"):
             store.set_task(no, "待派")
+            try:
+                for s in store.subtasks(no):
+                    if s["st"] != "完成":
+                        store.set_subtask(s["no"], "待派")
+            except Exception:
+                pass
             retried = True
             scheduler.scan_once()  # 立即扫描：置待派后马上重启执行链（busy 时自然排队）
         return {"ok": True, "no": no, "retried": retried,
                 "queue": store.tasks(),
-                "msg": ("重试 " + no + "：已重置为待派并触发扫描") if retried
+                "msg": ("重试 " + no + "：已重置为待派并触发扫描（未完成子任务重新执行）") if retried
                        else (no + " 状态为「" + hit[0]["status"] + "」，无需重试")}
 
     def _post_dispatch(self):

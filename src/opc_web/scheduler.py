@@ -455,10 +455,7 @@ def kb_digest(task_no: str) -> dict:
               "若无可沉淀内容，输出「无可沉淀内容」。\n\n任务 %s 回报：\n%s" % (task_no, digest))
     text = _headless_text(prompt, 600)
     if not text or "无可沉淀内容" in text:
-        text = ("---\ntype: lesson\ntitle: %s 产出沉淀\ndescription: 任务 %s 的产出归档\n"
-                "source:\n  type: task\n  task: %s\nfreshness: %s\nstatus: archive\n---\n\n# %s 产出沉淀\n\n"
-                % (task_no, task_no, task_no, today, task_no)
-                + "\n\n".join("### %s（%s）\n%s" % (r.get("role") or "?", r.get("status") or "?", str(r.get("body") or "")) for r in reps))
+        return {"ok": True, "created": False, "msg": "该任务产出无可复用价值（或模型未提取），未入库"}
     if not text.lstrip().startswith("---"):
         text = ("---\ntype: lesson\ntitle: %s 产出沉淀\ndescription: 任务 %s\n"
                 "source:\n  type: task\n  task: %s\nfreshness: %s\nstatus: archive\n---\n\n"
