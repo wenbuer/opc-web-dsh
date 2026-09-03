@@ -443,22 +443,26 @@ def kb_digest(task_no: str) -> dict:
     reps = store.reports(task_no)
     if not reps:
         return {"ok": True, "created": False, "msg": "该任务无回报，跳过知识沉淀"}
-    kb = config.KB_ROOT
-    kb.mkdir(parents=True, exist_ok=True)
-    name = "%s-沉淀.md" % task_no
-    target = kb / name
+    okf = config.KB_ROOT / "okf"
+    okf.mkdir(parents=True, exist_ok=True)
+    name = "%s-okf.md" % task_no
+    target = okf / name
     digest = _digest_reps(reps, limit=1200)
-    prompt = ("你是老板助理 R1。请从以下任务回报中抽取值得沉淀为知识库档案的内容，输出 markdown："
-              "每条知识给「标题 + 要点」，聚焦可复用结论 / 方法 / 数据，忽略过程性铺陈。"
+    today = datetime.date.today().isoformat()
+    prompt = ("你是老板助理 R1。请从该任务回报中抽取值得沉淀的知识，生成一份 OKF（Open Knowledge Format）文档。" 
+              "以 YAML front-matter 开头：type 必填（取值 concept/decision/method/data/lesson/problem 之一）、"
+              "title、description、tags；正文用 Markdown 写结论/方法/数据并给出出处。只输出该文档，不要额外说明。"
               "若无可沉淀内容，输出「无可沉淀内容」。\n\n任务 %s 回报：\n%s" % (task_no, digest))
     text = _headless_text(prompt, 600)
     if not text or "无可沉淀内容" in text:
-        # 降级：把回报正文归档留档
-        lines = ["# %s 产出沉淀（自动归档）" % task_no]
-        for r in reps:
-            lines += ["", "### %s（%s）" % (r.get("role") or "?", r.get("status") or "?"),
-                      str(r.get("body") or "").strip()]
-        text = "\n".join(lines) + "\n"
+        text = ("---\ntype: lesson\ntitle: %s 产出沉淀\ndescription: 任务 %s 的产出归档\n"
+                "source:\n  type: task\n  task: %s\nfreshness: %s\nstatus: archive\n---\n\n# %s 产出沉淀\n\n"
+                % (task_no, task_no, task_no, today, task_no)
+                + "\n\n".join("### %s（%s）\n%s" % (r.get("role") or "?", r.get("status") or "?", str(r.get("body") or "")) for r in reps))
+    if not text.lstrip().startswith("---"):
+        text = ("---\ntype: lesson\ntitle: %s 产出沉淀\ndescription: 任务 %s\n"
+                "source:\n  type: task\n  task: %s\nfreshness: %s\nstatus: archive\n---\n\n"
+                % (task_no, task_no, task_no, today)) + text
     target.write_text(text.strip() + "\n", encoding="utf-8")
     # 登记《知识库索引.md》
     try:
@@ -467,10 +471,10 @@ def kb_digest(task_no: str) -> dict:
         cur = config.read_text(idx) if idx.exists() else "# 知识库索引"
         if name not in cur:
             with open(idx, "a", encoding="utf-8") as fh:
-                fh.write("- [%s](知识库/%s)\n" % (name, name))
+                fh.write("- [%s](知识库/okf/%s)\n" % (name, name))
     except Exception:
         pass
-    return {"ok": True, "created": True, "file": name, "rel": "知识库/" + name}
+    return {"ok": True, "created": True, "file": "okf/" + name, "rel": "知识库/okf/" + name}
 
 def piyue_report(task_no: str, task_text: str, ok_cnt: int, total: int, fail: list) -> int:
     """任务自动执行完成后：R1 整理回报呈报 R0。

@@ -14,6 +14,16 @@ from urllib.parse import parse_qs, unquote
 from . import bootstrap, config, knowledge, parsers, review, roles, runner, scheduler, store
 
 
+def _strip_okf_frontmatter(text: str) -> str:
+    """剥离 OKF 文档开头的 YAML front-matter（供渲染，正文从第二个 '---' 后开始）。"""
+    if text.startswith("---\n") or text.startswith("---\r\n"):
+        for sep in ("\n---\n", "\n---\r\n"):
+            end = text.find(sep, 3)
+            if end > 0:
+                return text[end + len(sep):]
+    return text
+
+
 class ApiError(Exception):
     """带 HTTP 状态码的业务错误；msg 即回给前端的 msg。"""
 
@@ -88,7 +98,7 @@ class Handler(BaseHTTPRequestHandler):
     # ---------- 只读端点 ----------
     def _get_md(self):
         rel = unquote(self._qs().get("rel", [""])[0])
-        return {"ok": True, "rel": rel, "text": knowledge.read_md(rel)}
+        return {"ok": True, "rel": rel, "text": _strip_okf_frontmatter(knowledge.read_md(rel))}
 
     def _get_pending(self):
         data = parsers.parse_piyuetai(knowledge.read_md(config.PIYUETAI_REL))
