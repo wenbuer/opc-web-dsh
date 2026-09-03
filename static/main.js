@@ -129,21 +129,47 @@
        新增/编辑均走 /api/roles/add、/api/roles/edit（角色卡 + 工作区《名称/》）。 */
   }
 
+  function skillStem(n){ return String(n || "").replace(/\.md$/i, ""); }
+  function renderSkillCaps(names){
+    var body = $("roleSkillsBody");
+    if (!body) return;
+    body.innerHTML = "";
+    if (!names || !names.length){
+      body.innerHTML = "<div class='placeholder'>未装配技能 —— 点「编辑角色」在弹窗里从 agents/skills/ 勾选</div>";
+      return;
+    }
+    names.forEach(function(n){
+      var c = document.createElement("span");
+      c.className = "skill-cap";
+      c.textContent = skillStem(n);
+      c.title = "agents/skills/" + n;
+      body.appendChild(c);
+    });
+  }
   function openRole(code){
     var name = roleName(code);
     var tt = $("roleDetailTitle");
     if (tt) tt.textContent = name + " 工作区";
     var ct = $("roleCardTitle");
     var ft = $("roleFilesTitle");
+    var st2 = $("roleSkillsTitle");
     if (ct) ct.textContent = name;
     if (ft) ft.textContent = name;
+    if (st2) st2.textContent = name;
     var eb = $("btnEditRole"); if (eb){ eb.style.display = "inline-block"; eb.dataset.no = code; }
     var cb = $("roleCardBody");
+    var sb = $("roleSkillsBody");
     if (cb) cb.innerHTML = "<div class='placeholder'>加载中…</div>";
+    if (sb) sb.innerHTML = "";
     api("/api/roles/card?no=" + encodeURIComponent(code)).then(function(j){
-      if (!j || !j.ok){ cb.innerHTML = "<div class='placeholder'>角色卡不存在（本项目 agents/ 下无 " + esc(code) + ".role.md）</div>"; return; }
+      if (!j || !j.ok){
+        cb.innerHTML = "<div class='placeholder'>角色卡不存在（本项目 agents/ 下无 " + esc(code) + ".role.md）</div>";
+        renderSkillCaps([]);
+        return;
+      }
       cb.innerHTML = "<div class='role-card-doc'>" + renderMd(j.card || "") + "</div>";
-    }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; });
+      renderSkillCaps((parseCardFields(j.card || "").skills) || []);
+    }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; renderSkillCaps([]); });
     renderRoleList(code);
   }
   function renderRoleList(code){
@@ -1109,7 +1135,7 @@
   /* ================= 每日简报 ================= */
   /* ================= 角色管理 ================= */
   function parseCardFields(card){
-    var o = { no: "", name: "", type: "", position: "", duty: [] }, seg = null;
+    var o = { no: "", name: "", type: "", position: "", duty: [], skills: [] }, seg = null;
     card.split(NL10).forEach(function(ln){
       var t = ln.trim();
       if (t.indexOf("## ") === 0){ seg = t.slice(3); return; }
@@ -1118,6 +1144,10 @@
         else if (t.indexOf("- 一句话定位：") === 0) o.position = t.slice(7).split("（")[0];
       }
       else if (seg === "职责" && t.indexOf("- ") === 0) o.duty.push(t.slice(2));
+      else if (seg === "技能" && t.indexOf("- ") === 0){
+        var s2 = t.slice(2).trim();
+        if (s2 && s2.indexOf("（") !== 0 && s2.indexOf("(") !== 0) o.skills.push(s2);
+      }
     });
     return o;
   }
@@ -1184,11 +1214,47 @@
 
   bindRoleForm();
 
-  /* ================= 新增角色弹窗（作战面板：完成「设置 → 角色创建」的新增功能） ================= */
+  /* ================= 新增/编辑角色弹窗：技能 = 从 agents/skills/ 目录勾选，不手写 = ================= */
+  var _pick = { card: false, lib: false, sel: [] };
+  function renderSkillPick(list){
+    var box = $("mRlSkills"); if (!box) return;
+    box.innerHTML = "";
+    if (!list || !list.length){
+      box.innerHTML = "<div class='skills-pick-empty'>agents/skills/ 下暂无技能文件 —— 把 <code>技能名.md</code> 放进该目录后重开弹窗即可勾选</div>";
+      return;
+    }
+    list.forEach(function(n){
+      var c = document.createElement("span");
+      c.className = "skill-opt";
+      c.textContent = skillStem(n);
+      c.title = "agents/skills/" + n;
+      c.dataset.name = n;
+      c.addEventListener("click", function(){ c.classList.toggle("sel"); });
+      box.appendChild(c);
+    });
+  }
+  function markSkillPick(sel){
+    var box = $("mRlSkills"); if (!box) return;
+    box.querySelectorAll(".skill-opt").forEach(function(c){
+      if (sel.indexOf(c.dataset.name) >= 0) c.classList.add("sel");
+    });
+  }
+  function pickDone(){
+    if (_pick.card && _pick.lib) markSkillPick(_pick.sel || []);
+  }
+  function loadSkillPick(){
+    var box = $("mRlSkills");
+    if (box) box.innerHTML = "<div class='skills-pick-empty'>加载技能库…</div>";
+    api("/api/skills").then(function(j){
+      renderSkillPick((j && j.skills) || []);
+      _pick.lib = true; pickDone();
+    }).catch(function(){ renderSkillPick([]); _pick.lib = true; pickDone(); });
+  }
   function openRoleModal(mode, no){
     var m = $("roleModal"); if (!m) return;
     mode = mode || "add"; no = no || "";
     ["mRlName","mRlPosition","mRlType","mRlDuty"].forEach(function(id){ var el = $(id); if (el) el.value = ""; });
+    _pick = { card: false, lib: false, sel: [] };
     var msg = $("mRoleMsg"); if (msg) msg.textContent = "";
     var title = $("roleModalTitle"); if (title) title.textContent = (mode === "edit") ? "编辑角色 " + no : "＋ 新增角色";
     var hint = $("roleModalHint");
@@ -1197,16 +1263,21 @@
       : "自动编号 R10+ · 新增流程：角色卡 + 工作区《名称/》";
     m.dataset.mode = mode; m.dataset.no = no;
     m.hidden = false;
-    if (mode === "edit" && no){
+    if (mode === "add"){
+      _pick.card = true;
+    } else if (mode === "edit" && no){
       api("/api/roles/card?no=" + encodeURIComponent(no)).then(function(jc){
-        if (!jc || !jc.ok){ var mm = $("mRoleMsg"); if (mm) mm.textContent = "角色卡加载失败：该角色无 " + no + ".role.md"; return; }
+        if (!jc || !jc.ok){ var mm = $("mRoleMsg"); if (mm) mm.textContent = "角色卡加载失败：该角色无 " + no + ".role.md"; _pick.card = true; pickDone(); return; }
         var o = parseCardFields(jc.card || "");
         var n1 = $("mRlName"); if (n1) n1.value = o.name || "";
         var p1 = $("mRlPosition"); if (p1) p1.value = o.position || "";
         var t1 = $("mRlType"); if (t1) t1.value = o.type || "";
         var d1 = $("mRlDuty"); if (d1) d1.value = (o.duty || []).join(NL10);
-      }).catch(function(){});
+        _pick.sel = o.skills || [];
+        _pick.card = true; pickDone();
+      }).catch(function(){ _pick.card = true; pickDone(); });
     }
+    loadSkillPick();
     var n2 = $("mRlName"); if (n2) n2.focus();
   }
   function closeRoleModal(){
@@ -1224,7 +1295,8 @@
       name: name,
       duty: ($("mRlDuty").value || "").trim(),
       position: ($("mRlPosition").value || "").trim(),
-      type: ($("mRlType").value || "").trim()
+      type: ($("mRlType").value || "").trim(),
+      skills: Array.prototype.map.call(document.querySelectorAll("#mRlSkills .skill-opt.sel"), function(el){ return el.dataset.name || ""; }).join("\n")
     };
     if (mode === "edit") payload.no = no;
     if (msg) msg.textContent = mode === "edit" ? "保存中：重新生成角色卡…" : "保存中：生成角色卡…";

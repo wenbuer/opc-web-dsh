@@ -63,5 +63,24 @@ class TestConfigFile(unittest.TestCase):
         self.assertEqual(config.wb_root().name, "工作区")
 
 
+class TestRoleCardSkills(unittest.TestCase):
+    """角色卡「## 技能」段：组装 → 解析 往返（含提示行过滤）。"""
+
+    def test_card_skills_roundtrip(self):
+        c = roles.role_card("R10", "演示", "演示职责", "演示定位", "业务", skills=["a-guide.md", "b.md"])
+        self.assertEqual(roles.card_skills(c), ["a-guide.md", "b.md"])
+
+    def test_empty_skills_renders_hint_and_parses_empty(self):
+        c = roles.role_card("R10", "演示", "演示职责", "演示定位")
+        self.assertIn("## 技能", c)
+        self.assertEqual(roles.card_skills(c), [])     # 提示行（（ 开头）不算装配项
+
+    def test_extract_fields_keeps_skills(self):
+        c = roles.role_card("R10", "演示", "演示职责", "演示定位", "业务", skills=["z.md"])
+        no, name, type_, position, duties, skills = roles._extract_fields(c)
+        self.assertEqual(skills, ["z.md"])
+
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -4,6 +4,9 @@
 
 v1.9 语义：web 引用与工作区创建一律使用「角色名称」，R1/R2 仅为编号 Id——
 工作区目录 = 《工作区/<角色名称>/》（v1.10 三目录模型，无 -输出 后缀）。
+
+角色「技能装配」：技能 md 平铺共享在 agents/skills/<技能名>.md，角色卡「## 技能」段
+登记装配清单（每行一个技能文件名）；agent_prompt() 按清单把技能正文注入派发 prompt。
 """
 import datetime
 import re
@@ -18,6 +21,9 @@ CARD_TPL = """# OPC 角色卡：%(no)s %(name)s
 
 ## 职责
 %(duties)s
+
+## 技能
+%(skills)s
 
 ## 不做的事
 - 不拍板、不花钱、不发布（总决策在 R0）
@@ -80,26 +86,30 @@ def role_digest(exclude=("R0", "R1")):
     return out
 
 
-def role_card(no, name, duty, position, type_="业务"):
-    """组装新角色卡（CARD_TPL + 运行时变量）。"""
+def role_card(no, name, duty, position, type_="业务", skills=()):
+    """组装新角色卡（CARD_TPL + 运行时变量）；skills = 装配技能名列表。"""
     today = datetime.date.today().isoformat()
     duties = "\n".join("- " + s.strip() for s in duty.replace(chr(13), "").split("\n") if s.strip())
+    rows = ["- " + str(s).strip() for s in skills if str(s).strip()]
+    if not rows:
+        rows = ["- （未装配：在 agents/skills/ 放技能 md 后，在这里登记文件名，每行一个）"]
     kb = str(config.ROOT).replace("\\", "/")
     ws = config.WORKSPACE_REL
     return CARD_TPL % {
         "no": no, "name": name, "today": today,
         "type_": type_, "position": position,
-        "duties": duties, "kb": kb, "ws": ws, "wsname": name,
+        "duties": duties, "skills": "\n".join(rows),
+        "kb": kb, "ws": ws, "wsname": name,
     }
 
 
-def add_role(name, duty, position, type_="业务", dry=False):
+def add_role(name, duty, position, type_="业务", skills=(), dry=False):
     """新增角色 agent：编号 → 角色卡 → 工作区目录《<角色名称>》→ 角色架构登记。
     dry 只返回预览。角色卡只写本项目 agents/，不写入全局 dsh 配置。"""
     if not config.active_project():
         raise ValueError("还没有激活的项目：请先在「设置 → 项目」新建或选择一个项目，再新增角色")
     no = next_no()
-    card = role_card(no, name, duty, position, type_)
+    card = role_card(no, name, duty, position, type_, skills or ())
     wsname = config.sanitize_dir(name)
     result = {
         "no": no, "name": name, "card": card,
@@ -125,7 +135,6 @@ def add_role(name, duty, position, type_="业务", dry=False):
             arch.write_text("\n".join(lines), encoding="utf-8")
             result["archLine"] = "| %s | %s | %s | 待激活 | %s |" % (no, name, position, type_)
     return result
-
 
 
 def remove_role(no: str) -> dict:
@@ -174,8 +183,33 @@ def _card_sections(text):
     return seg
 
 
+def _skill_items(lines):
+    """技能段行 → 装配技能名（跳过空行与以 （ / ( 开头的提示行）。"""
+    out = []
+    for ln in lines:
+        t = ln.strip()
+        if t.startswith("- "):
+            s = t[2:].strip()
+            if s and not (s.startswith("（") or s.startswith("(")):
+                out.append(s)
+    return out
+
+
+def card_skills(text: str) -> list:
+    """角色卡文本「## 技能」段 → 装配技能名列表（文件名，可带 .md 后缀）。"""
+    return _skill_items(_card_sections(text).get("技能", []))
+
+
+def role_skill_names(no: str) -> list:
+    """读取角色卡文件，返回该角色登记的装配技能名列表。"""
+    p = config.AGENTS_DIR / (no + ".role.md")
+    if not p.exists():
+        return []
+    return card_skills(config.read_text(p))
+
+
 def _extract_fields(text):
-    """从现角色卡提取 (no, name, type_, position, duties)。"""
+    """从现角色卡提取 (no, name, type_, position, duties, skills)。"""
     seg = _card_sections(text)
     ident = [ln for ln in seg.get("身份", [])]
     no = name = type_ = ""
@@ -192,25 +226,27 @@ def _extract_fields(text):
     if "position" not in locals():
         position = "一句话定位"
     duties = "\n".join(ln.strip()[2:].strip() for ln in seg.get("职责", []) if ln.strip().startswith("- "))
-    return no or "R?", name, type_, position, duties
+    skills = _skill_items(seg.get("技能", []))
+    return no or "R?", name, type_, position, duties, skills
 
 
-def edit_role(no, name=None, duty=None, position=None, type_=None, dry=False):
-    """编辑角色卡：缺省字段取自现卡；重生成并覆写角色卡。dry 只返回预览。"""
+def edit_role(no, name=None, duty=None, position=None, type_=None, skills=None, dry=False):
+    """编辑角色卡：缺省字段取自现卡；重生成并覆写角色卡。dry 只返回预览。
+    skills=None → 保留现卡装配清单（UI 没动技能时不会清空）；传 [] 才清空。"""
     p = config.AGENTS_DIR / (no + ".role.md")
     if not p.exists():
         raise ValueError("角色 %s 不存在" % no)
-    text = p.read_text(encoding="utf-8")
-    c_no, c_name, c_type, c_pos, c_duties = _extract_fields(text)
+    text = config.read_text(p)
+    c_no, c_name, c_type, c_pos, c_duties, c_skills = _extract_fields(text)
     name = name or c_name or "未命名"
     type_ = type_ or c_type or "业务"
     position = position or c_pos or "一句话定位"
     duty = duty or c_duties or "待补充职责"
-    card = role_card(no, name, duty, position, type_)
+    if skills is None:
+        skills = c_skills
+    card = role_card(no, name, duty, position, type_, skills)
     result = {"no": no, "name": name, "card": card, "cardPath": str(p)}
     if dry:
         return result
     p.write_text(card, encoding="utf-8")
     return result
-
-

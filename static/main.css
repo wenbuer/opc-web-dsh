@@ -315,8 +315,8 @@ main{flex:1;overflow:hidden}
 .launch-state .dq-state.busy{color:var(--gold);border-color:var(--gold)}
 .launch-state .dq-state.ok{color:var(--ok);border-color:var(--ok)}
 .dq-form input{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);padding:8px 12px;border-radius:8px;font-size:12px}
-.dq-form .seal,.btn-gold{padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid}
-.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
+.dq-form .seal,.btn-gold,#btnModalRoleSave{padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid}
+.btn-gold,#btnModalRoleSave{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
 .dq-state{font-size:10.5px;color:var(--faint)}
 .dq-state.busy{color:var(--gold);animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.45}}
@@ -350,8 +350,10 @@ main{flex:1;overflow:hidden}
 .role-card-doc h2{font-size:13px;color:var(--gold);margin:10px 0 4px}
 .role-card-doc h3{font-size:12px;color:var(--gold);margin:8px 0 4px}
 .role-card-doc p{color:var(--dim);font-size:11.5px;line-height:1.6;margin:3px 0}
-.role-card-doc li{color:var(--dim);font-size:11.5px;line-height:1.6}
+.role-card-doc ul,.role-card-doc ol{margin:4px 0 4px 18px}
+.role-card-doc li{color:var(--dim);font-size:11.5px;line-height:1.6;list-style-position:inside}
 .role-card-doc code{background:rgba(2,132,199,.12);color:var(--gold);padding:1px 4px;border-radius:4px;font-size:10.5px}
+.role-card-doc{overflow-wrap:break-word;word-break:break-word}
 .back-bar{margin-bottom:8px}
 .back-bar a{color:var(--gold);font-size:11px;cursor:pointer}
 .org-tree .role-card{cursor:pointer}
@@ -380,6 +382,11 @@ main{flex:1;overflow:hidden}
 .role-pane .pane-body::-webkit-scrollbar{width:6px}
 .role-pane .pane-body::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .role-pane .pane-body::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
+/* 角色卡：完整显示全文、随内容增高、最低为默认高度、不出现内部滚动条 */
+.role-pane.card .pane-body{max-height:none;min-height:240px;overflow:visible;padding-right:0}
+/* 挂载技能胶囊（角色卡下方、工作区产物上方） */
+.role-pane.skills .pane-body.skill-caps{display:flex;flex-wrap:wrap;gap:6px;padding-right:0}
+.skill-cap{display:inline-flex;align-items:center;background:rgba(2,132,199,.10);color:var(--gold);border:1px solid rgba(2,132,199,.45);border-radius:999px;padding:2px 10px;font-size:10.5px;line-height:1.6;white-space:nowrap;cursor:default}
 .rno-file{display:flex;flex-direction:column;gap:2px;padding:6px 8px;margin:4px 0;border:1px solid var(--line2);border-radius:6px;cursor:pointer;background:rgba(2,132,199,.05)}
 /* ===== 知识库：档案卡片（R1 管理 · 全体共同维护） ===== */
 #view-kb.active{display:flex;flex-direction:column}
@@ -659,10 +666,14 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .modal-box .form input:focus,.modal-box .form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(2,132,199,.15)}
 .modal-box .form textarea{min-height:96px;resize:vertical}
 .modal-foot{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
-#btnModalRoleSave{background:linear-gradient(135deg,#3db8f5,#0284c7 55%,#0369a1);color:#062338;border:1px solid #7dd3fc;border-radius:8px;padding:9px 16px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;box-shadow:0 2px 10px rgba(2,132,199,.28), inset 0 1px 0 rgba(255,255,255,.4);transition:transform .12s ease, box-shadow .18s ease, filter .18s ease}
-#btnModalRoleSave:hover{filter:brightness(1.09);box-shadow:0 4px 18px rgba(2,132,199,.45);transform:translateY(-1px)}
-#btnModalRoleSave:active{transform:translateY(0) scale(.98);box-shadow:0 1px 6px rgba(2,132,199,.3)}
 #mRoleMsg{font-size:10.5px;color:var(--gold);letter-spacing:.3px;line-height:1.5;min-width:0;word-break:break-all}
+.skills-pick-caption{width:100%;font-size:10px;color:var(--dim);letter-spacing:.4px;margin:-2px 0 4px}
+.skills-pick{width:100%;display:flex;flex-wrap:wrap;gap:6px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;margin-bottom:8px;box-sizing:border-box}
+.skills-pick-empty{width:100%;color:var(--faint);font-size:10.5px;line-height:1.6}
+.skills-pick-empty code{color:var(--gold);background:rgba(2,132,199,.1);padding:0 3px;border-radius:3px}
+.skill-opt{display:inline-flex;align-items:center;cursor:pointer;background:rgba(2,132,199,.06);color:var(--dim);border:1px solid var(--line2);border-radius:999px;padding:2px 10px;font-size:11px;line-height:1.6;transition:all .15s ease;user-select:none}
+.skill-opt:hover{border-color:var(--gold);color:var(--gold)}
+.skill-opt.sel{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
 /* ===== 设置：大模型 API 面板（模型接入，同 dsh 模型 API 接入惯例，v1.11） ===== */
 .model-api-panel{grid-column:1 / -1}
 .mapi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 14px;margin-bottom:12px}
@@ -968,7 +979,7 @@ linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px)}
 :root[data-theme="dark"] .launch-state .dq-state{background:rgba(76,110,245,.10);border:1px dashed rgba(76,110,245,.4);color:var(--txt)}
 :root[data-theme="dark"] .launch-state .dq-state.ok{color:var(--ok)}
 :root[data-theme="dark"] .dq-form .seal,.btn-gold{padding:8px 14px;border-radius:8px;font-size:12px}
-:root[data-theme="dark"] .btn-gold{color:#1a1206}
+:root[data-theme="dark"] .btn-gold,#btnModalRoleSave{color:#1a1206}
 :root[data-theme="dark"] .dq-state{color:var(--faint)}
 :root[data-theme="dark"] .dq-row{background:rgba(255,255,255,.02)}
 :root[data-theme="dark"] .dq-row.open{border-color:rgba(231,76,60,.45)}
@@ -1035,11 +1046,11 @@ linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px)}
 :root[data-theme="dark"] .org-node.add:hover{background:rgba(232,183,61,.12);box-shadow:0 0 12px rgba(232,183,61,.25)}
 :root[data-theme="dark"] .org-node.add .oid{background:rgba(232,183,61,.14);border-color:rgba(232,183,61,.5)}
 :root[data-theme="dark"] .modal-mask{background:rgba(3,6,12,.72)}
+:root[data-theme="dark"] .skill-opt.sel{color:#1a1206}
+:root[data-theme="dark"] .skill-cap{background:rgba(232,183,61,.14);border-color:rgba(232,183,61,.5)}
+:root[data-theme="dark"] .skills-pick{background:rgba(0,0,0,.25);border-color:rgba(232,183,61,.25)}
 :root[data-theme="dark"] .modal-box{box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 0 1px rgba(232,183,61,.15)}
 :root[data-theme="dark"] .modal-box .form input:focus,.modal-box .form textarea:focus{box-shadow:0 0 0 2px rgba(232,183,61,.15)}
-:root[data-theme="dark"] #btnModalRoleSave{background:linear-gradient(135deg,#f2cd63,#e8b73d 55%,#d9a52e);color:#1a1206;border:1px solid #f4d57a;box-shadow:0 2px 10px rgba(232,183,61,.28), inset 0 1px 0 rgba(255,255,255,.4)}
-:root[data-theme="dark"] #btnModalRoleSave:hover{box-shadow:0 4px 18px rgba(232,183,61,.45)}
-:root[data-theme="dark"] #btnModalRoleSave:active{box-shadow:0 1px 6px rgba(232,183,61,.3)}
 :root[data-theme="dark"] .mapi-row select:focus,.mapi-row input:focus{box-shadow:0 0 0 2px rgba(232,183,61,.15)}
 :root[data-theme="dark"] .sched-ops button{background:rgba(232,183,61,.08);border-color:rgba(232,183,61,.4)}
 :root[data-theme="dark"] .sched-ops button:hover{box-shadow:0 0 10px rgba(232,183,61,.35)}

@@ -118,6 +118,8 @@ TEMPLATES = BASE / "templates"
 STATIC = BASE / "static"
 # 角色阵容跟项目走；还没建项目时退回模板库，作战面板不至于空着（此时只读）
 AGENTS_DIR = (ROOT / "agents") if active_project() else AGENTS_SEED
+# 角色技能共享库（平铺共享）：agents/skills/<技能名>.md；角色卡「## 技能」段登记文件名即装配
+SKILLS_REL = "skills"
 LOG_FILE = ROOT / SCHED_LOG_REL
 
 HOST = "127.0.0.1"

@@ -18,6 +18,22 @@ class ApiError(Exception):
         self.status = status
 
 
+def _split_skills(v):
+    """body['skills']（textarea 文本）→ 技能名列表；None=未提交该字段。
+
+    每行一项，兼容「- xxx」列表写法；跳过空行与以 （ / ( 开头的提示行。"""
+    if v is None:
+        return None
+    out = []
+    for ln in str(v).splitlines():
+        s = ln.strip()
+        if s.startswith("- "):
+            s = s[2:].strip()
+        if s and not (s.startswith("（") or s.startswith("(")):
+            out.append(s)
+    return out
+
+
 class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):
         pass
@@ -109,6 +125,12 @@ class Handler(BaseHTTPRequestHandler):
             raise ApiError(404, "角色不存在")
         return {"ok": True, "no": no, "card": config.read_text(p)}
 
+    def _get_skill_lib(self):
+        """共享技能库清单：agents/skills/ 下的技能文件名（装配时勾选，不手写）。"""
+        d = config.AGENTS_DIR / config.SKILLS_REL
+        names = sorted(p.name for p in d.glob("*.md")) if d.is_dir() else []
+        return {"ok": True, "skills": names, "dir": str(d)}
+
     def _get_events(self):
         since = int(self._qs().get("since", ["0"])[0] or 0)
         return runner.events(since)
@@ -157,6 +179,8 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"ok": True, "roles": [{"no": no, "name": name} for no, name in roles.role_files()]})
         elif url == "/api/roles/card":
             self._ok(self._get_role_card)
+        elif url == "/api/skills":
+            self._ok(self._get_skill_lib)
         elif url == "/api/projects":
             self._json({"ok": True, "projects": config.projects(),
                         "active": config.active_project(), "seedRoles": config.settings_info()["seedRoles"]})
@@ -237,6 +261,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _post_role_add(self, edit=False):
         body = self._body() or {}
+        skills = _split_skills(body.get("skills"))     # None=未提交（edit 保留现卡清单）；[]=清空
         if edit:
             r = roles.edit_role(
                 str(body.get("no", "")).strip(),
@@ -244,6 +269,7 @@ class Handler(BaseHTTPRequestHandler):
                 duty=str(body.get("duty", "")).strip() or None,
                 position=str(body.get("position", "")).strip() or None,
                 type_=str(body.get("type", "")).strip() or None,
+                skills=skills,
                 dry=bool(body.get("dry", False)))
         else:
             r = roles.add_role(
@@ -251,6 +277,7 @@ class Handler(BaseHTTPRequestHandler):
                 str(body.get("duty", "")).strip() or "待补充职责",
                 str(body.get("position", "")).strip() or "一句话定位",
                 str(body.get("type", "")).strip() or "业务",
+                skills=skills or (),
                 dry=bool(body.get("dry", False)))
         return {"ok": True, **({"preview": True} if body.get("dry") else {}), "result": r}
 

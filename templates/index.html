@@ -65,6 +65,10 @@
               <div class="pane-title">角色卡 <em id="roleCardTitle">未选择</em> <button id="btnEditRole" class="btn-gold small" style="display:none">编辑角色</button></div>
               <div id="roleCardBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色角色卡全文</div></div>
             </div>
+            <div class="role-pane skills">
+              <div class="pane-title">挂载技能 <em id="roleSkillsTitle">未选择</em></div>
+              <div id="roleSkillsBody" class="pane-body skill-caps"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色装配的技能</div></div>
+            </div>
             <div class="role-pane files">
               <div class="pane-title">工作区产物 <em id="roleFilesTitle">未选择</em></div>
               <div id="roleFilesBody" class="pane-body"><div class="placeholder">← 点击左侧角色卡片，此处显示该角色工作区产物（<角色名称>/）列表</div></div>
@@ -290,6 +294,8 @@
         <input id="mRlPosition" placeholder="一句话定位">
         <input id="mRlType" placeholder="类型（业务/技术/运营…）">
         <textarea id="mRlDuty" placeholder="职责（每行一条，回车分隔）"></textarea>
+        <div class="skills-pick-caption">装配技能 · 来自 agents/skills/（勾选，可多选；技能库为空时先把 .md 放进该目录）</div>
+        <div id="mRlSkills" class="skills-pick"></div>
       </div>
       <div class="modal-foot">
         <button id="btnModalRoleSave">保存（生成角色卡 + 工作区《名称/》）</button>
