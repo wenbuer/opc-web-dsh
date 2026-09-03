@@ -687,7 +687,8 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .modal-head em{font-style:normal;font-weight:400;color:var(--faint);font-size:9.5px;letter-spacing:.3px}
 .modal-x{margin-left:auto;background:var(--panel2);border:1px solid var(--line2);color:var(--faint);border-radius:50%;width:24px;height:24px;cursor:pointer;font-size:13px;line-height:1;transition:all .15s ease}
 .modal-x:hover{color:var(--gold);border-color:var(--gold)}
-.modal-box .form input,.modal-box .form textarea{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:11.5px;outline:none;margin-bottom:8px;transition:border-color .15s ease, box-shadow .15s ease}
+.modal-box .form input,.modal-box .form textarea{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:11.5px;outline:none;margin-bottom:8px;font-family:inherit;transition:border-color .15s ease, box-shadow .15s ease}
+.modal-box .form label{display:block;font-size:10px;color:var(--dim);letter-spacing:.3px;margin-bottom:3px;font-family:inherit}
 .modal-box .form input:focus,.modal-box .form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(2,132,199,.15)}
 .modal-box .form textarea{min-height:96px;resize:vertical}
 .modal-foot{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
