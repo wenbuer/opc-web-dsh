@@ -38,6 +38,13 @@
   }
 
   /* ================= 首页：组织架构 / 时间线 / 当前任务 ================= */
+  function loadOverview(){
+    api("/api/summary").then(function(j){ if (j && j.ok){ var p=$("ovPending"); if(p) p.textContent = (j.pendingCount||0); } });
+    api("/api/queue").then(function(j){ if (j && j.ok){ var n=(j.queue||[]).filter(function(t){ return (t.status||"")!=="完成"; }).length; var r=$("ovRunning"); if(r) r.textContent=n; } });
+    api("/api/tokens").then(function(j){ if (j && j.ok){ var t=0; (j.rows||[]).forEach(function(x){ t += (Number(x.tokensIn)||0)+(Number(x.tokensOut)||0); }); var o=$("ovToken"); if(o) o.textContent = t>=1000 ? (t/1000).toFixed(1)+"k" : String(t); } });
+    api("/api/kb-entries").then(function(j){ if (j && j.ok){ var k=(j.entries||[]).filter(function(e){ return /okf\//.test(e.rel||""); }).length; var o=$("ovOkf"); if(o) o.textContent=k; } });
+    api("/api/daily").then(function(j){ if (j && j.ok){ var d=(j.daily||[])[0]; var o=$("ovDaily"); if(o) o.textContent = d ? d.date : "无"; } });
+  }
   function loadHome(){
     cacheRoles();
     api("/api/org").then(function(j){
@@ -47,6 +54,7 @@
     api("/api/timeline").then(function(j){
       if (j && j.ok){ renderTimeline(j.events || []); }
     }).catch(function(){});
+    loadOverview();
   }
   var taskTexts = {};   // 任务编号 → 下达内容原文（左列缩略卡看不到任务文字，选中后显示在搜索栏下方）
   function showCurTask(no){
@@ -147,6 +155,7 @@
     });
   }
   function openRole(code){
+    state.curNo = code;
     var name = roleName(code);
     var tt = $("roleDetailTitle");
     if (tt) tt.textContent = name;
@@ -1220,7 +1229,7 @@
     var box = $("mRlSkills"); if (!box) return;
     box.innerHTML = "";
     if (!list || !list.length){
-      box.innerHTML = "<div class='skills-pick-empty'>agents/skills/ 下暂无技能文件 —— 把 <code>技能名.md</code> 放进该目录后重开弹窗即可勾选</div>";
+      box.innerHTML = "<div class='skills-pick-empty'>暂无技能 —— 点「去 Skill 导入」从 dsh 导入后再装配</div>";
       return;
     }
     list.forEach(function(n){
@@ -1743,6 +1752,12 @@
     }).catch(function(e){ if (chart) chart.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
   }
 
+  function gotoSkillImport(){
+    var tab = document.querySelector('.tab[data-view="settings"]');
+    if (tab) tab.click();
+    var s = document.querySelector('.snav-item[data-snav="skill"]');
+    if (s) s.click();
+  }
   function bindSettings(){
     document.querySelectorAll(".snav-item").forEach(function(item){
       item.addEventListener("click", function(){
@@ -1757,6 +1772,8 @@
       });
     });
     var sss = $("skillSearch"); if (sss && !sss.dataset.bound){ sss.dataset.bound = "1"; sss.addEventListener("input", renderDshSkills); }
+    var bas = $("btnAddSkill"); if (bas && !bas.dataset.bound){ bas.dataset.bound = "1"; bas.addEventListener("click", function(){ openRoleModal("edit", state.curNo || ""); }); }
+    var lis = $("linkImportSkill"); if (lis) lis.addEventListener("click", gotoSkillImport);
     var ps = $("projSel");
     if (ps && !ps.dataset.bound){
       ps.dataset.bound = "1";

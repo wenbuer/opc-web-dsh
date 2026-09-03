@@ -34,6 +34,13 @@
   <main>
     <!-- ===== 作战面板：组织架构 + 角色工作区 ===== -->
     <section id="view-home" class="view active">
+      <div class="overview-bar">
+        <span class="ov-item">待办 <b id="ovPending">—</b></span>
+        <span class="ov-item">进行中 <b id="ovRunning">—</b></span>
+        <span class="ov-item">Token 消耗 <b id="ovToken">—</b></span>
+        <span class="ov-item">OKF 知识 <b id="ovOkf">—</b></span>
+        <span class="ov-item">最近简报 <b id="ovDaily">—</b></span>
+      </div>
       <div class="home-grid">
         <div class="org-panel">
           <div class="panel-head">组织架构</div>
@@ -66,7 +73,7 @@
               <div id="roleCardBody" class="pane-body"><div class="placeholder">← 选择角色</div></div>
             </div>
             <div class="role-pane skills">
-              <div class="pane-title">挂载技能 <em id="roleSkillsTitle"></em></div>
+              <div class="pane-title">挂载技能 <em id="roleSkillsTitle"></em> <button id="btnAddSkill" class="btn-gold small">＋ 新增技能</button></div>
               <div id="roleSkillsBody" class="pane-body skill-caps"><div class="placeholder">← 选择角色</div></div>
             </div>
             <div class="role-pane files">
@@ -304,7 +311,7 @@
         <input id="mRlPosition" placeholder="一句话定位">
         <input id="mRlType" placeholder="类型（业务/技术/运营…）">
         <textarea id="mRlDuty" placeholder="职责（每行一条，回车分隔）"></textarea>
-        <div class="skills-pick-caption">装配技能</div>
+        <div class="skills-pick-caption">装配技能 <a href="javascript:void(0)" id="linkImportSkill">去 Skill 导入</a></div>
         <div id="mRlSkills" class="skills-pick"></div>
       </div>
       <div class="modal-foot">

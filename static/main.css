@@ -246,6 +246,9 @@ main{flex:1;overflow:hidden}
 .markdown-body pre code{background:none;padding:0;color:#a8c4e6}
 .markdown-body hr{border:none;border-top:1px dashed var(--line);margin:18px 0}
 
+.overview-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;padding:12px 20px 0}
+.ov-item{flex:1;min-width:120px;padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;font-size:11px;color:var(--dim)}
+.ov-item b{display:block;font-size:20px;font-weight:700;color:var(--gold);margin-top:3px}
 .home-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:16px;height:100%;padding:16px 20px;overflow:auto}
 .panel-head{font-size:12px;letter-spacing:2px;color:var(--gold);margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .panel-head em{font-style:normal;color:var(--faint);font-size:10.5px;letter-spacing:.5px}
@@ -682,6 +685,8 @@ table.mdt{border-collapse:collapse;width:100%;min-width:100%;font-size:10.5px;co
 .modal-foot{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
 #mRoleMsg{font-size:10.5px;color:var(--gold);letter-spacing:.3px;line-height:1.5;min-width:0;word-break:break-all}
 .skills-pick-caption{width:100%;font-size:10px;color:var(--dim);letter-spacing:.4px;margin:-2px 0 4px}
+.skills-pick-caption a{color:var(--gold);cursor:pointer;margin-left:8px;text-decoration:underline}
+.skills-pick-caption a:hover{opacity:.8}
 .skills-pick{width:100%;display:flex;flex-wrap:wrap;gap:6px;background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:8px 10px;margin-bottom:8px;box-sizing:border-box}
 .skills-pick-empty{width:100%;color:var(--faint);font-size:10.5px;line-height:1.6}
 .skills-pick-empty code{color:var(--gold);background:rgba(2,132,199,.1);padding:0 3px;border-radius:3px}
