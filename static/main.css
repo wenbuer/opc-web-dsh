@@ -377,10 +377,10 @@ main{flex:1;overflow:hidden}
 .task-table::-webkit-scrollbar-thumb,.dq-table::-webkit-scrollbar-thumb,.r1-out::-webkit-scrollbar-thumb,.rn-out::-webkit-scrollbar-thumb,.timeline::-webkit-scrollbar-thumb,.role-detail::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .task-table::-webkit-scrollbar-track,.dq-table::-webkit-scrollbar-track,.r1-out::-webkit-scrollbar-track,.rn-out::-webkit-scrollbar-track,.timeline::-webkit-scrollbar-track,.role-detail::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
 /* ===== 作战面板：角色卡 / 工作区产物 双框 ===== */
-.role-detail{display:flex;flex-direction:column;gap:8px;border:none;padding:0;background:transparent;max-height:none;overflow:visible;min-height:0;height:100%}
+.role-detail{display:flex;flex-direction:column;gap:8px;border:none;padding:0;background:transparent;max-height:none;overflow:visible}
 .role-pane{background:rgba(15,30,50,.05);border:1px solid var(--line2);border-radius:10px;padding:8px 11px}
 .role-pane.card{flex:none}
-.role-pane.skills,.role-pane.files{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+.role-pane.skills,.role-pane.files{height:170px;flex:none;display:flex;flex-direction:column}
 .role-pane .pane-title{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:6px;border-bottom:1px dashed var(--line2);padding-bottom:5px}
 .role-pane .pane-title em{flex:1}
 #btnEditRole{margin-left:auto;flex:none}
