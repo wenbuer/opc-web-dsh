@@ -230,12 +230,23 @@ def _extract_fields(text):
     return no or "R?", name, type_, position, duties, skills
 
 
-def edit_role(no, name=None, duty=None, position=None, type_=None, skills=None, dry=False):
-    """编辑角色卡：缺省字段取自现卡；重生成并覆写角色卡。dry 只返回预览。
-    skills=None → 保留现卡装配清单（UI 没动技能时不会清空）；传 [] 才清空。"""
+def edit_role(no, name=None, duty=None, position=None, type_=None, skills=None, card=None, dry=False):
+    """编辑角色卡。缺省字段取自现卡；重生成并覆写角色卡。dry 只返回预览。
+    skills=None → 保留现卡装配清单（UI 没动技能时不会清空）；传 [] 才清空。
+    card 非空 → 整卡 Markdown 直接覆写（保留 不做的事/读写权限/激活触发器/协议与输出格式 等全部段落），
+    不再走 role_card 模板重建（模板只覆盖 no/name/type/position/职责/技能，保存会丢其他段落）。"""
     p = config.AGENTS_DIR / (no + ".role.md")
     if not p.exists():
         raise ValueError("角色 %s 不存在" % no)
+    if card is not None and str(card).strip():
+        card = str(card).replace("\r\n", "\n").replace("\r", "\n")
+        if not re.search(r"^#\s*OPC", card, re.M):
+            raise ValueError("角色卡必须以 # OPC 开头")
+        result = {"no": no, "name": name, "card": card, "cardPath": str(p)}
+        if dry:
+            return result
+        p.write_text(card, encoding="utf-8")
+        return result
     text = config.read_text(p)
     c_no, c_name, c_type, c_pos, c_duties, c_skills = _extract_fields(text)
     name = name or c_name or "未命名"
@@ -244,9 +255,9 @@ def edit_role(no, name=None, duty=None, position=None, type_=None, skills=None, 
     duty = duty or c_duties or "待补充职责"
     if skills is None:
         skills = c_skills
-    card = role_card(no, name, duty, position, type_, skills)
-    result = {"no": no, "name": name, "card": card, "cardPath": str(p)}
+    rebuilt = role_card(no, name, duty, position, type_, skills)
+    result = {"no": no, "name": name, "card": rebuilt, "cardPath": str(p)}
     if dry:
         return result
-    p.write_text(card, encoding="utf-8")
+    p.write_text(rebuilt, encoding="utf-8")
     return result

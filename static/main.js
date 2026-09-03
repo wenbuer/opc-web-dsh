@@ -226,33 +226,33 @@
     }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; renderSkillCaps([]); });
     renderRoleList(code);
   }
-  /* 就地编辑角色：点「编辑角色」后把角色卡面板直接切换成可编辑表单，不弹窗 */
-  function aq(s){ return esc(s).split('"').join("&quot;"); }
+  /* 就地编辑角色：点「编辑角色」后把角色卡面板切换成整卡可编辑（不弹窗） */
   function inlineEditRole(code){
+    /* 就地编辑整张角色卡：展示什么就编辑什么（身份/职责/不做的事/读写权限/激活触发器/协议与输出格式…），
+       直接编辑 Markdown 源码，保存后整卡覆写，不再只改四个字段 */
     var cb = $("roleCardBody"); if (!cb) return;
     var eb = $("btnEditRole"); if (eb) eb.style.display = "none";
     cb.innerHTML = "<div class='placeholder'>加载中…</div>";
     api("/api/roles/card?no=" + encodeURIComponent(code)).then(function(j){
       if (!j || !j.ok){ cb.innerHTML = "<div class='placeholder'>角色卡加载失败</div>"; if (eb) eb.style.display = "inline-block"; return; }
-      var o = parseCardFields(j.card || "");
+      var card = j.card || "";
       cb.innerHTML = "<div class='role-edit-form'>"
-        + "<label>名称</label><input id='ieName' value='" + aq(o.name||'') + "' placeholder='必填，web 引用 / 工作区名称'>"
-        + "<label>定位</label><input id='iePosition' value='" + aq(o.position||'') + "' placeholder='一句话定位'>"
-        + "<label>类型</label><input id='ieType' value='" + aq(o.type||'') + "' placeholder='业务 / 技术 / 运营…'>"
-        + "<label>职责</label><textarea id='ieDuty' placeholder='每行一条，回车分隔'>" + esc((o.duty||[]).join(NL10)) + "</textarea>"
+        + "<div class='role-edit-hint'>编辑整张角色卡（Markdown）· 说明：读/写权限、激活触发器、协议与输出格式等段落都会完整保留</div>"
+        + "<textarea id='ieCard' spellcheck='false'>" + esc(card) + "</textarea>"
         + "<div class='role-edit-actions'><button id='btnIeSave' class='btn-gold'>保存</button><button id='btnIeCancel'>取消</button><span id='ieMsg'></span></div>"
         + "</div>";
+      var ta = $("ieCard"); if (ta){ ta.style.minHeight = "280px"; ta.focus(); }
       var s = $("btnIeSave"); if (s) s.addEventListener("click", function(){ saveInlineRole(code); });
       var c = $("btnIeCancel"); if (c) c.addEventListener("click", function(){ openRole(code); });
-      var n = $("ieName"); if (n) n.focus();
     }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; if (eb) eb.style.display = "inline-block"; });
   }
   function saveInlineRole(code){
-    var name = ($("ieName").value || "").trim();
     var msg = $("ieMsg");
     if (msg) msg.textContent = "";
-    if (!name){ if (msg) msg.textContent = "名称必填"; return; }
-    var payload = { no: code, name: name, duty: ($("ieDuty").value || "").trim(), position: ($("iePosition").value || "").trim(), type: ($("ieType").value || "").trim() };
+    var card = ($("ieCard").value || "").trim();
+    if (!card){ if (msg) msg.textContent = "角色卡不能为空"; return; }
+    if (card.indexOf("# OPC") !== 0){ if (msg) msg.textContent = "角色卡须以 # OPC 开头"; return; }
+    var payload = { no: code, card: card };
     if (msg) msg.textContent = "保存中…";
     post("/api/roles/edit", payload).then(function(jj){
       if (jj && jj.ok){

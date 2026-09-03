@@ -350,6 +350,7 @@ class Handler(BaseHTTPRequestHandler):
         body = self._body() or {}
         skills = _split_skills(body.get("skills"))     # None=未提交（edit 保留现卡清单）；[]=清空
         if edit:
+            body_card = body.get("card")
             r = roles.edit_role(
                 str(body.get("no", "")).strip(),
                 name=str(body.get("name", "")).strip() or None,
@@ -357,6 +358,7 @@ class Handler(BaseHTTPRequestHandler):
                 position=str(body.get("position", "")).strip() or None,
                 type_=str(body.get("type", "")).strip() or None,
                 skills=skills,
+                card=(str(body_card).strip() if isinstance(body_card, str) and str(body_card).strip() else None),
                 dry=bool(body.get("dry", False)))
         else:
             r = roles.add_role(

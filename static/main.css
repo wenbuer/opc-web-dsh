@@ -398,6 +398,7 @@ main{flex:1;overflow:hidden}
 .role-edit-form input,.role-edit-form textarea{width:100%;box-sizing:border-box;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);border-radius:8px;padding:7px 10px;font-size:11.5px;outline:none;margin-bottom:8px;font-family:inherit;transition:border-color .15s ease, box-shadow .15s ease}
 .role-edit-form input:focus,.role-edit-form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 2px rgba(2,132,199,.15)}
 .role-edit-form textarea{min-height:96px;resize:vertical}
+.role-pane.card .pane-body:has(.role-edit-form){max-height:none}
 .role-edit-form .role-edit-actions{display:flex;align-items:center;gap:8px;margin-top:2px}
 .role-edit-form .role-edit-actions button{cursor:pointer;border-radius:8px;font-size:11.5px;padding:7px 14px;border:1px solid var(--line2);background:var(--panel2);color:var(--txt);font-family:inherit}
 .role-edit-form .role-edit-actions button.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
