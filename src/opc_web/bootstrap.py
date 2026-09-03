@@ -45,7 +45,6 @@ def bootstrap():
         pass
     h = chr(10)
     seeds = {
-        config.ARCH_REL: "| 编号 | 名称 | 职责 | 目标产出 | 状态 |" + h + "|---|---|---|---|---|" + h + "| R0 | 创始人 | 总决策/批阅 | — | 指挥中 |" + h + "| R1 | 老板助理（枢纽） | 任务派发/调度/回报校验 | 调度指令与闭环 | 指挥中 |" + h + "| R2 | 需求研究员 | 用户原声/需求/假设清单维护 | 研究简报 | 就绪 |" + h + "| R3 | 内容工厂 | 内容稿/选题/话术 | 内容资产 | 就绪 |" + h + "| R4 | 增长运营 | 增长实验/落地页 | 实验简报 | 就绪 |" + h + "| R5 | 用户洞察官 | 用户洞察/真实需求 | 用户画像研究 | 就绪 |" + h + "| R6 | 数据分析官 | 指标看板/复盘数据 | 数据报告 | 就绪 |" + h + "| R7 | 财务与合规 | 定价测算/成本/合规审查 | 合规报告 | 就绪 |" + h + "| R8 | 产品设计师 | 产品设计 + 前端实现编码 | 设计稿/前端代码 | 就绪 |" + h + "| R9 | 技术评估与实现 | 技术路径 + 实现编码 | 技术方案/实现代码 | 就绪 |" + h,
         config.INDEX_REL: "# 知识库索引" + h,
         config.LOG_REL: "## 决策日志" + h,
         # 批阅台：空骨架 = 工作内容（例行进展）/ 决策裁决（需 R0 拍板）/ 已批阅归档 三区
@@ -56,6 +55,15 @@ def bootstrap():
         if not p.exists():
             p.write_text(text, encoding="utf-8")
             BOOT_LOG.append("创建 " + rel)
+    # 架构表速览：从当前角色卡动态生成（人读；功能权威=角色卡），启动时生成/校验
+    try:
+        from . import roles as _roles
+        _ap = config.ROOT / config.ARCH_REL
+        if not _ap.exists():
+            _ap.write_text(_roles.build_arch_table(), encoding="utf-8")
+            BOOT_LOG.append("创建 " + config.ARCH_REL)
+    except Exception:
+        pass
     if not config.LOG_FILE.exists():
         config.LOG_FILE.write_text("## R1 调度日志" + h, encoding="utf-8")
         BOOT_LOG.append("创建 " + config.SCHED_LOG_REL)

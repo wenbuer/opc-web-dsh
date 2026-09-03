@@ -288,6 +288,9 @@ class Handler(BaseHTTPRequestHandler):
         hit = [t for t in store.tasks() if t["no"] == no]
         if not hit:
             raise ApiError(404, "任务 " + no + " 不在队列中")
+        st = scheduler.SCHED_STATE
+        if st.get("busy") and no in (st.get("tag") or ""):
+            raise ApiError(409, no + " 正在执行中，暂不可重试")
         retried = False
         if hit[0]["status"] in ("阻塞", "部分"):
             store.set_task(no, "待派")
@@ -328,10 +331,12 @@ class Handler(BaseHTTPRequestHandler):
         st = scheduler.SCHED_STATE
         if st.get("busy") and no in (st.get("tag") or ""):
             raise ApiError(409, no + " 正在执行中，暂不可删除")
+        rep_n = len(store.reports(no))            # 删除将连带移除回报/批阅依据
         store.delete_task(no)
         removed = scheduler.clean_task_files(no)
         return {"ok": True, "no": no, "removedFiles": removed, "queue": store.tasks(),
-                "msg": "已删除任务 " + no + ((" · 清理工作区文件 " + str(removed) + " 个") if removed else "")}
+                "msg": ("已删除任务 " + no + (" · 连带移除 " + str(rep_n) + " 条回报/批阅记录" if rep_n else "")
+                        + ((" · 清理工作区文件 " + str(removed) + " 个") if removed else ""))}
 
     def _post_plan_pause(self):
         body = self._body() or {}
@@ -533,7 +538,10 @@ class Handler(BaseHTTPRequestHandler):
         elif url == "/api/roles/delete":
             def h():
                 body = self._body() or {}
-                return {"ok": True, "result": roles.remove_role(str(body.get("no", "")).strip())}
+                try:
+                    return {"ok": True, "result": roles.remove_role(str(body.get("no", "")).strip())}
+                except ValueError as e:
+                    raise ApiError(409, str(e))
             self._ok(h)
         elif url == "/api/schedule":
             self._ok(self._post_schedule)

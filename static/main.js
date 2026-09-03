@@ -1418,7 +1418,7 @@
       + "<br>确认删除将永久移除："
       + "<br>① 角色卡《agents/" + esc(no) + ".role.md》"
       + "<br>③ 工作区《工作区/" + esc(name) + "/》"
-      + "<br>④ 《知识库/OPC智能体角色架构.md》登记行"
+      + "<br>④ 无其它登记（角色卡为唯一权威）"
       + "<br><span class='del-warn'>此操作不可恢复，请二次确认。</span>";
     var msg = $("delRoleMsg"); if (msg) msg.textContent = "";
     m.dataset.no = no; m.dataset.name = name;

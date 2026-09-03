@@ -21,8 +21,6 @@ def _roles_cli(args):
         print('新增角色：%s %s' % (r['no'], r['name']))
         print('  角色卡: %s' % r['cardPath'])
         print('  作业区: %s' % r['sbRoot'])
-        if r.get('archLine'):
-            print('  架构登记: ' + r['archLine'])
         return
     for no, name in roles.role_files():
         print('%s %s' % (no, name))

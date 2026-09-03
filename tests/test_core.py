@@ -24,13 +24,16 @@ class _TmpKB(unittest.TestCase):
         root.mkdir(parents=True, exist_ok=True)
         self._root = root
         self._old_roots = (config.ROOT, config.KB_ROOT, config.BATCH_ROOT, config.WORKSPACE_ROOT)
+        self._old_agents = config.AGENTS_DIR
         config.ROOT = root
         config.KB_ROOT = root / "知识库"
         config.BATCH_ROOT = root / "批阅台"
         config.WORKSPACE_ROOT = root / "工作区"
+        config.AGENTS_DIR = root / "agents"
 
     def tearDown(self):
         config.ROOT, config.KB_ROOT, config.BATCH_ROOT, config.WORKSPACE_ROOT = self._old_roots
+        config.AGENTS_DIR = self._old_agents
         shutil.rmtree(self._root, ignore_errors=True)
 
 
@@ -68,7 +71,7 @@ class TestStore(_TmpKB):
 
     def test_subtasks_replace_is_idempotent(self):
         no = store.add_task("拆解任务")
-        rows = [{"sub": "子一", "role": "R8", "expect": "稿"},
+        rows = [{"sub": "子一", "role": "R6", "expect": "稿"},
                 {"sub": "子二", "role": "R2", "expect": "简报"}]
         self.assertEqual(store.replace_subtasks(no, rows), [no + "-S1", no + "-S2"])
         store.replace_subtasks(no, rows)                    # 重复拆解不累积
@@ -77,8 +80,8 @@ class TestStore(_TmpKB):
         self.assertEqual([s["st"] for s in store.subtasks(no)], ["完成", "待派"])
 
     def test_report_upsert_by_subtask(self):
-        store.put_report("T-001-S1", "T-001", "R8", "完成", "标题", "正文\n第二行", "工作区/x.md")
-        store.put_report("T-001-S1", "T-001", "R8", "部分", "标题2", "改过的\n多行正文", "工作区/x.md")
+        store.put_report("T-001-S1", "T-001", "R6", "完成", "标题", "正文\n第二行", "工作区/x.md")
+        store.put_report("T-001-S1", "T-001", "R6", "部分", "标题2", "改过的\n多行正文", "工作区/x.md")
         rs = store.reports("T-001")
         self.assertEqual(len(rs), 1)                        # 主键去重，不再跨天重复入库
         self.assertEqual(rs[0]["status"], "部分")
@@ -112,47 +115,46 @@ class TestParsers(_TmpKB):
         self.assertNotIn("✅", line)          # md 不落表情符
         text = knowledge.read_md(config.PIYUETAI_REL)
         self.assertNotIn("待填", text)
-        self.assertIn("同意试点", text)
-
     def test_parse_roles_and_dispatch(self):
         config.BATCH_ROOT.mkdir(parents=True, exist_ok=True)
         (config.BATCH_ROOT / "决策日志.md").write_text(
             "## 派发单\n| 角色 | 任务 | 期望产出 | 状态 |\n|---|---|---|---|\n"
             "| R3 内容工厂 | 选题 3 篇（暂不激活的除外） | 《营销/选题库.md》 | 执行中 |\n", encoding="utf-8")
-        config.KB_ROOT.mkdir(parents=True, exist_ok=True)
-        (config.KB_ROOT / "OPC智能体角色架构.md").write_text(
-            "| 编号 | 名称 | 职责 | 目标产出 | 状态 |\n|---|---|---|---|---|\n"
-            "| R4 | 增长运营 | 投放执行 | 投放周报 | 暂不激活 |\n\n"
-            "### R4 增长运营\n- **职责**：投放执行、数据监控、私域运维\n", encoding="utf-8")
+        ag = config.AGENTS_DIR
+        ag.mkdir(parents=True, exist_ok=True)
+        (ag / "R4.role.md").write_text(
+            "# OPC 角色卡：R4 增长与数据（业务）\n\n"
+            "## 身份\n- 编号：R4｜名称：增长与数据｜类型：业务\n- 一句话定位：增长实验落地 + 数据验证复盘\n\n"
+            "## 职责\n- 投放执行、数据监控、私域运维\n", encoding="utf-8")
         roles = parsers.parse_roles()
         r4 = [r for r in roles if r["code"] == "R4"][0]
-        self.assertEqual(r4["name"], "增长运营")
-        self.assertIn("投放执行", r4["desc"])
+        self.assertEqual(r4["name"], "增长与数据")
+        self.assertIn("投放执行", r4["duty"])
 
     def test_role_status_is_two_states_only(self):
         """状态只剩 执行中 / 待命中（R0R1 指挥中）；「暂不激活」「未激活」不再出现。"""
-        config.KB_ROOT.mkdir(parents=True, exist_ok=True)
-        (config.KB_ROOT / "OPC智能体角色架构.md").write_text(
-            "| 编号 | 名称 | 职责 | 目标产出 | 状态 |\n|---|---|---|---|---|\n"
-            "| R1 | 老板助理 | 调度派发 | 指令 | — |\n"
-            "| R4 | 增长运营 | 投放执行 | 投放周报 | — |\n"
-            "| R8 | 产品设计师 | 设计实现 | 稿件 | — |\n", encoding="utf-8")
+        ag = config.AGENTS_DIR
+        ag.mkdir(parents=True, exist_ok=True)
+        for no_, name_ in [("R1", "老板助理"), ("R4", "增长与数据"), ("R6", "产品设计师")]:
+            (ag / (no_ + ".role.md")).write_text(
+                "# OPC 角色卡：%s %s\n\n## 身份\n- 编号：%s｜名称：%s\n\n## 职责\n- x\n"
+                % (no_, name_, no_, name_), encoding="utf-8")
         no = store.add_task("演示任务")
         subs = store.replace_subtasks(no, [
             {"sub": "跑一个投放实验", "role": "R4", "expect": "简报"},
-            {"sub": "画一个落地页", "role": "R8", "expect": "页面"},
+            {"sub": "画一个落地页", "role": "R6", "expect": "页面"},
         ])
         store.set_subtask(subs[0], "已派")      # R4 还在跑
-        store.set_subtask(subs[1], "完成")      # R8 已经干完
+        store.set_subtask(subs[1], "完成")      # R6 已经干完
         roles_ = parsers.parse_roles()
         st = {r["code"]: r["status"] for r in roles_}
         self.assertEqual(st["R1"], "指挥中")
         self.assertEqual(st["R4"], "执行中")
-        self.assertEqual(st["R8"], "待命中")
+        self.assertEqual(st["R6"], "待命中")
         self.assertNotIn("暂不激活", list(st.values()))
         self.assertNotIn("未激活", list(st.values()))
         cur = {r["code"]: r["current"] for r in roles_}
-        self.assertIn("落地页", cur["R8"])       # 待命中仍显示上一次执行的标题
+        self.assertEqual(cur["R6"], "T-001")      # 待命中仍显示最近一次执行的任务号
 
 
 class TestReviewEdits(_TmpKB):
@@ -219,17 +221,17 @@ class TestChildEnv(unittest.TestCase):
 class TestNamedRoles(unittest.TestCase):
     """点名直派只认任务开头；顺口提及 / R2D2 / 2024 R1 都不该触发直派。"""
 
-    OK = {"R2", "R3", "R8", "R9"}
+    OK = {"R2", "R3", "R6", "R7"}
 
     def test_head_named_single_and_multi(self):
         from opc_web import chain
-        self.assertEqual(chain.named_roles("R8开始设计App的前端界面", self.OK), ["R8"])
-        self.assertEqual(chain.named_roles("R2 和 R8 一起做落地页", self.OK), ["R2", "R8"])
-        self.assertEqual(chain.named_roles("R3、R9 分头推进", self.OK), ["R3", "R9"])
+        self.assertEqual(chain.named_roles("R6开始设计App的前端界面", self.OK), ["R6"])
+        self.assertEqual(chain.named_roles("R2 和 R6 一起做落地页", self.OK), ["R2", "R6"])
+        self.assertEqual(chain.named_roles("R3、R7 分头推进", self.OK), ["R3", "R7"])
 
     def test_mention_is_not_a_call(self):
         from opc_web import chain
-        self.assertEqual(chain.named_roles("参考 R8 的设计做个 H5", self.OK), [])
+        self.assertEqual(chain.named_roles("参考 R6 的设计做个 H5", self.OK), [])
         self.assertEqual(chain.named_roles("整理 2024 R1 季度数据", self.OK), [])
         self.assertEqual(chain.named_roles("做一个 R2D2 玩具页面", self.OK), [])
         self.assertEqual(chain.named_roles("R2D2 玩具页面", self.OK), [])

@@ -64,31 +64,15 @@ def parse_piyuetai(text: str) -> dict:
 
 # ---------- 角色架构 ----------
 def parse_roles() -> list:
-    """解析《知识库/OPC智能体角色架构.md》→ 角色清单（编号/名称/职责/产出/详情/状态/当前工作）。"""
-    text = knowledge.read_md(config.ARCH_REL)
-    lines = text.split("\n")
-    rows = []
-    reRow = re.compile(r"^\|\s*(R\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|")
-    for ln in lines:
-        m = reRow.match(ln)
-        if m:
-            rows.append({"code": m.group(1), "name": m.group(2).strip(),
-                         "duty": m.group(3).strip(), "target": m.group(4).strip(), "desc": ""})
-    reCard = re.compile(r"^###\s+(R\d+)\s+(.+)$")
-    reDuty = re.compile(r"^-\s*\*\*职责\*\*[:：]\s*(.+)$")
-    for i in range(len(lines)):
-        m = reCard.match(lines[i])
-        if m:
-            for j in range(i + 1, min(i + 8, len(lines))):
-                dm = reDuty.match(lines[j])
-                if dm:
-                    for item in rows:
-                        if item["code"] == m.group(1):
-                            item["desc"] = dm.group(1).strip()
-                    break
-    # v1.18：状态只有两种 —— 有未完成子任务 = 执行中，否则待命中；R0/R1 固定指挥中。
-    # 原先是一张写死的 st_def/cur_def（R4/R5「暂不激活」、R9「未激活」、「深访阶段未到」…），
-    # 跟角色实际有没有活干毫无关系；决策日志里靠文本匹配出的状态同样早就对不上，一并弃用。
+    """角色清单（编号/名称/职责/状态/当前工作）。
+
+    唯一权威 = 项目 agents/*.role.md（角色卡）；《知识库/OPC智能体角色架构.md》仅作人读速览，
+    不作为功能入口（改删角色不再需要同步它）。R0 创始人无角色卡，固定前置行。
+    状态只有两种：有未完成子任务 = 执行中，否则待命中；R0/R1 固定指挥中。"""
+    from . import roles as _roles
+    rows = [{"code": "R0", "name": "创始人", "duty": "总决策/批阅", "target": "—", "desc": ""}]
+    for no, name in _roles.role_files():
+        rows.append({"code": no, "name": name, "duty": _roles.role_duty(no), "target": "", "desc": ""})
     busy, latest_sub = set(), {}
     for p in store.subtasks():                 # 已按编号排序，后写覆盖 = 该角色最新的子任务
         if p["st"] in ("待派", "已派"):
@@ -101,7 +85,7 @@ def parse_roles() -> list:
         e = last_exec.get(code)
         if e and e.get("sub"):                 # 最近一次执行：执行中=正在做的，待命中=上次做的
             it["current"] = (e["sub_no"].rsplit("-S", 1)[0] if "-S" in e["sub_no"] else e["sub_no"])
-        elif code in latest_sub:               # 无执行记录（如 md 迁移来的历史数据）→ 退到最新子任务
+        elif code in latest_sub:               # 无执行记录 → 退到最新子任务
             it["current"] = latest_sub[code]["taskNo"]
         else:
             it["current"] = "无"

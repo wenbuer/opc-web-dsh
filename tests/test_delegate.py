@@ -22,14 +22,14 @@ class TestNoHeadless(unittest.TestCase):
             self.assertFalse(hasattr(agent, gone), "agent 不应再有 %s" % gone)
 
     def test_role_cards_exist(self):
-        for n in range(1, 10):
+        for n in range(1, 8):
             card = config.AGENTS_DIR / ("R%d.role.md" % n)
             self.assertTrue(card.exists(), "角色卡 R%d.role.md 应存在" % n)
 
 
 class TestPromptInjection(unittest.TestCase):
     def test_agent_prompt_contains_task_and_tail(self):
-        p = agent.agent_prompt("R8", "测试任务：更新 PRD 设计稿",
+        p = agent.agent_prompt("R6", "测试任务：更新 PRD 设计稿",
                                "工作区/产品设计师/T-001-S1.md", "工作区/产品设计师/T-001-S1.meta.json")
         self.assertIn("测试任务：更新 PRD 设计稿", p)
         self.assertIn("T-001-S1.md", p)
@@ -37,7 +37,7 @@ class TestPromptInjection(unittest.TestCase):
         self.assertIn("工作根目录", p)
 
     def test_agent_prompt_uses_role_card(self):
-        p = agent.agent_prompt("R8", "x")
+        p = agent.agent_prompt("R6", "x")
         self.assertIn("产品设计师", p)
 
 
@@ -72,11 +72,11 @@ class TestRoleSkills(unittest.TestCase):
             # 共享技能库：平铺，多角色可复用
             (agents / "skills" / "design-guide.md").write_text("## 设计规范\n- 主色用品牌蓝 #2563EB", encoding="utf-8")
             (agents / "skills" / "copy-guide.md").write_text("只属于内容岗的文案技能", encoding="utf-8")
-            (agents / "R8.role.md").write_text(
-                "# OPC 角色卡：R8 产品设计师\n\n## 职责\n- 设计\n\n## 技能\n- design-guide.md", encoding="utf-8")
+            (agents / "R6.role.md").write_text(
+                "# OPC 角色卡：R6 产品设计师\n\n## 职责\n- 设计\n\n## 技能\n- design-guide.md", encoding="utf-8")
             (agents / "R3.role.md").write_text(
                 "# OPC 角色卡：R3 内容工厂\n\n## 职责\n- 内容\n\n## 技能\n- copy-guide.md", encoding="utf-8")
-            p = agent.agent_prompt("R8", "做一版首页", "工作区/产品设计师/T-1-S1.md", "工作区/产品设计师/T-1-S1.meta.json")
+            p = agent.agent_prompt("R6", "做一版首页", "工作区/产品设计师/T-1-S1.md", "工作区/产品设计师/T-1-S1.meta.json")
             self.assertIn("【装配技能】", p)
             self.assertIn("设计规范", p)
             self.assertNotIn("只属于内容岗", p)       # 卡上没登记就不装

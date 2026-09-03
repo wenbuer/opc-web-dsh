@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """角色管理（v1.9+）：角色卡由本项目自己维护（agents/，不写入全局 dsh 配置）；
-新增角色 agent（自动编号 / 角色卡 / 工作区 / 架构登记）。
+新增角色 agent：自动编号 / 角色卡 / 工作区（角色卡为唯一权威，无架构登记）。
 
 v1.9 语义：web 引用与工作区创建一律使用「角色名称」，R1/R2 仅为编号 Id——
 工作区目录 = 《工作区/<角色名称>/》（v1.10 三目录模型，无 -输出 后缀）。
@@ -66,23 +66,26 @@ def next_no():
     return "R%d" % (max([int(no[1:]) for no, _ in role_files()] or [0]) + 1)
 
 
+def role_duty(no: str) -> str:
+    """角色卡「## 职责」段首条 → 一句话职责（拆解器/速览表用）。"""
+    p = config.AGENTS_DIR / (no + ".role.md")
+    if not p.exists():
+        return ""
+    m = re.search(r"##\s*职责[^\n]*\n+\s*-\s*([^\n]+)", config.read_text(p))
+    return m.group(1).strip() if m else ""
+
+
 def role_digest(exclude=("R0", "R1")):
     """角色摘要 [(编号, 名称, 一句话职责)] —— 给任务拆解器认人用。
 
     只给编号+名称时模型只能靠名字猜（「本周产品动态提纲」该给 R3 内容工厂还是
-    R6 数据分析官？），带上首条职责就能判准。整卡 5000+ 字塞进 prompt 只会稀释
+    R4 增长与数据？），带上首条职责就能判准。整卡 5000+ 字塞进 prompt 只会稀释
     注意力，取「## 职责」段首条即可。默认剔除 R0/R1：派发者不能是被派发对象。"""
     out = []
     for no, name in role_files():
         if no in exclude:
             continue
-        p = config.AGENTS_DIR / (no + ".role.md")
-        duty = ""
-        if p.exists():
-            m = re.search(r"##\s*职责[^\n]*\n+\s*-\s*([^\n]+)", p.read_text(encoding="utf-8"))
-            if m:
-                duty = m.group(1).strip()
-        out.append((no, name, duty))
+        out.append((no, name, role_duty(no)))
     return out
 
 
@@ -104,8 +107,8 @@ def role_card(no, name, duty, position, type_="业务", skills=()):
 
 
 def add_role(name, duty, position, type_="业务", skills=(), dry=False):
-    """新增角色 agent：编号 → 角色卡 → 工作区目录《<角色名称>》→ 角色架构登记。
-    dry 只返回预览。角色卡只写本项目 agents/，不写入全局 dsh 配置。"""
+    """新增角色 agent：编号 → 角色卡 → 工作区目录《<角色名称>》。
+    dry 只返回预览。角色卡只写本项目 agents/（唯一权威），不写入全局 dsh 配置，也不同步架构表。"""
     if not config.active_project():
         raise ValueError("还没有激活的项目：请先在「设置 → 项目」新建或选择一个项目，再新增角色")
     no = next_no()
@@ -121,24 +124,12 @@ def add_role(name, duty, position, type_="业务", skills=(), dry=False):
         return result
     (config.AGENTS_DIR / (no + ".role.md")).write_text(card, encoding="utf-8")
     (config.wb_root() / wsname).mkdir(parents=True, exist_ok=True)
-    arch = config.ROOT / config.ARCH_REL
-    if arch.exists():
-        head = arch.read_text(encoding="utf-8")
-        if no not in head:
-            lines = head.split("\n")
-            at = 0
-            for i, ln in enumerate(lines):
-                if ln.startswith("| R") and not ln.startswith("| 编号"):
-                    at = i + 1
-                    break
-            lines.insert(at, "| %s | %s | %s | 待激活 | %s |" % (no, name, position, type_))
-            arch.write_text("\n".join(lines), encoding="utf-8")
-            result["archLine"] = "| %s | %s | %s | 待激活 | %s |" % (no, name, position, type_)
     return result
 
 
 def remove_role(no: str) -> dict:
-    """删除角色 agent：角色卡 + 工作区《名称/》 + 架构登记行。
+    """删除角色 agent：角色卡 + 工作区《名称/》。功能权威=角色卡，无需同步架构表。
+    守卫：① 有进行中/待派子任务 → 拒删（防幽灵派发）；② 工作区有未归档产物 → 拒删（防数据丢失）。
     安全：R0（创始人）/R1（枢纽）不可删除，其余 R2+ 可删。返回 {no, name, removed, roleLeft}。"""
     no = (no or "").strip().upper()
     if no in ("R0", "R1"):
@@ -148,25 +139,45 @@ def remove_role(no: str) -> dict:
         raise ValueError("角色卡 %s 不存在" % no)
     name = config.role_name(no)
     wsname = config.sanitize_dir(name if name != no else no)
+    ws = config.wb_root() / wsname
+    # 守卫①：该角色有进行中/待派/已派子任务 → 拒删（删除后这些任务会派发到幽灵角色）
+    try:
+        from . import store as _store
+        pending = [s for s in _store.subtasks()
+                   if s["role"] == no and s["st"] in ("待派", "已派", "执行中")]
+    except Exception:
+        pending = []
+    if pending:
+        tasknos = "、".join(sorted({s["taskNo"] for s in pending}))
+        raise ValueError("角色 %s 有 %d 个进行中/待派子任务（%s），不可删除：请先在《工作台》处理这些任务（完成/驳回/删除）"
+                         % (no, len(pending), tasknos))
+    # 守卫②：工作区有未归档产物 → 拒删（防止未入库数据被 rmtree 丢弃）
+    if ws.exists():
+        leftovers = [f for f in ws.rglob("*") if f.is_file() and "已归档" not in f.parts]
+        if leftovers:
+            raise ValueError("角色 %s 工作区《工作区/%s/》尚 %d 个未归档文件（如 %s…），不可删除：请先在《工作台》整理归档，或手动移走后再删"
+                             % (no, wsname, len(leftovers), leftovers[0].name))
     removed = []
     # 1) 角色卡（本项目 agents/）
     p.unlink()
     removed.append(str(p))
     # 3) 工作区《工作区/<名称>/》（v1.10 名称工作区；旧 R?-输出 目录不在本次删除范围内）
-    ws = config.wb_root() / wsname
     if ws.exists():
         import shutil
         shutil.rmtree(ws, ignore_errors=True)
         removed.append(str(ws))
-    # 4) 知识库《OPC智能体角色架构.md》中的登记行（| R? | …）
-    arch = config.ROOT / config.ARCH_REL
-    if arch.exists():
-        lines = arch.read_text(encoding="utf-8").split("\n")
-        keep = [ln for ln in lines if not ln.startswith("| " + no + " |")]
-        if len(keep) != len(lines):
-            arch.write_text("\n".join(keep), encoding="utf-8")
-            removed.append(str(arch) + "（登记行已移除）")
     return {"no": no, "name": name, "removed": removed, "roleLeft": len(role_files())}
+
+
+def build_arch_table() -> str:
+    """从当前角色卡生成《OPC智能体角色架构.md》速览表（人读；功能权威是角色卡）。
+    R0 创始人无卡，固定行；启动时由 bootstrap 生成，不作为功能入口。"""
+    h = "\n"
+    lines = ["| 编号 | 名称 | 职责 | 目标产出 | 状态 |", "|---|---|---|---|---|",
+             "| R0 | 创始人 | 总决策/批阅 | — | 指挥中 |"]
+    for no, name in role_files():
+        lines.append("| %s | %s | %s |  | 就绪 |" % (no, name, role_duty(no)))
+    return "\n".join(lines) + h
 
 
 def _card_sections(text):
