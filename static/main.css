@@ -255,9 +255,9 @@ main{flex:1;overflow:hidden}
 .org-panel,.tl-panel,.task-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
 
 /* 组织架构树 */
-.org-tree{display:flex;flex-direction:column;gap:2px;max-width:560px;width:100%;margin:0 auto}
+.org-tree{display:flex;flex-direction:column;align-items:center;gap:0;max-width:560px;width:100%;margin:0 auto}
 .org-node{display:flex;align-items:center;gap:10px;padding:8px 11px;background:linear-gradient(90deg,rgba(15,30,50,.05),transparent);border:1px solid var(--line);border-radius:10px}
-.org-node.root{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.06)}
+.org-node.root{border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.06);align-self:center;width:min(300px,100%)}
 .org-node.hub{border-color:rgba(2,132,199,.45);background:rgba(2,132,199,.05)}
 .org-node.inactive{border-style:dashed;opacity:.55;filter:grayscale(.8)}
 .oid{font-family:var(--serif);font-style:italic;font-weight:800;font-size:15px;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--panel2);border:1px solid var(--line2);color:var(--gold);flex:none}
@@ -270,8 +270,8 @@ main{flex:1;overflow:hidden}
 .ostatus.red{color:var(--red-bright);border-color:rgba(239,68,68,.5)}
 .ostatus.gold{color:var(--gold);border-color:rgba(2,132,199,.5)}
 .ostatus.off{color:var(--faint);border-color:var(--line)}
-.org-link{text-align:center;font-size:10px;color:var(--faint);letter-spacing:3px;padding:3px 0 1px;line-height:1.6;position:relative}
-.org-link::after{content:"▼";display:inline-block;font-size:11px;color:var(--dim);margin-left:5px;letter-spacing:0;vertical-align:1px}
+.org-link{position:relative;text-align:center;font-size:9.5px;color:var(--gold);letter-spacing:2px;margin:2px auto;padding:2px 14px;background:var(--bg0);border:1px solid var(--line2);border-radius:12px;width:max-content}
+.org-link::before{content:"";position:absolute;left:50%;top:-5px;bottom:-5px;width:2px;transform:translateX(-50%);background:var(--line2);z-index:-1}
 .org-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:2px}
 .role-card{padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;position:relative}
 .role-card .rc-top{display:flex;align-items:center;gap:8px}
