@@ -1796,6 +1796,7 @@
   }
 
   function gotoSkillImport(){
+    closeSkillAdd();
     var tab = document.querySelector('.tab[data-view="settings"]');
     if (tab) tab.click();
     var s = document.querySelector('.snav-item[data-snav="skill"]');
