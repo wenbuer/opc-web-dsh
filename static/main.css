@@ -320,8 +320,8 @@ main{flex:1;overflow:hidden}
 .launch-state .dq-state.busy{color:var(--gold);border-color:var(--gold)}
 .launch-state .dq-state.ok{color:var(--ok);border-color:var(--ok)}
 .dq-form input{flex:1;min-width:200px;background:var(--panel2);border:1px solid var(--line2);color:var(--txt);padding:8px 12px;border-radius:8px;font-size:12px}
-.dq-form .seal,.btn-gold,#btnModalRoleSave{padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid}
-.btn-gold,#btnModalRoleSave{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
+.dq-form .seal,.btn-gold{padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;border:1px solid}
+.btn-gold{background:var(--gold);color:#fff;border-color:var(--gold);font-weight:600}
 .dq-state{font-size:10.5px;color:var(--faint)}
 .dq-state.busy{color:var(--gold);animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.45}}
@@ -1008,7 +1008,7 @@ linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px)}
 :root[data-theme="dark"] .launch-state .dq-state{background:rgba(76,110,245,.10);border:1px dashed rgba(76,110,245,.4);color:var(--txt)}
 :root[data-theme="dark"] .launch-state .dq-state.ok{color:var(--ok)}
 :root[data-theme="dark"] .dq-form .seal,.btn-gold{padding:8px 14px;border-radius:8px;font-size:12px}
-:root[data-theme="dark"] .btn-gold,#btnModalRoleSave{color:#1a1206}
+:root[data-theme="dark"] .btn-gold{color:#1a1206}
 :root[data-theme="dark"] .dq-state{color:var(--faint)}
 :root[data-theme="dark"] .dq-row{background:rgba(255,255,255,.02)}
 :root[data-theme="dark"] .dq-row.open{border-color:rgba(231,76,60,.45)}
