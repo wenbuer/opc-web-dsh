@@ -377,13 +377,16 @@ main{flex:1;overflow:hidden}
 .task-table::-webkit-scrollbar-thumb,.dq-table::-webkit-scrollbar-thumb,.r1-out::-webkit-scrollbar-thumb,.rn-out::-webkit-scrollbar-thumb,.timeline::-webkit-scrollbar-thumb,.role-detail::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .task-table::-webkit-scrollbar-track,.dq-table::-webkit-scrollbar-track,.r1-out::-webkit-scrollbar-track,.rn-out::-webkit-scrollbar-track,.timeline::-webkit-scrollbar-track,.role-detail::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
 /* ===== 作战面板：角色卡 / 工作区产物 双框 ===== */
-.role-detail{display:flex;flex-direction:column;gap:8px;border:none;padding:0;background:transparent;max-height:none;overflow:visible}
+.role-detail{display:flex;flex-direction:column;gap:8px;border:none;padding:0;background:transparent;max-height:none;overflow:visible;min-height:0;height:100%}
 .role-pane{background:rgba(15,30,50,.05);border:1px solid var(--line2);border-radius:10px;padding:8px 11px}
+.role-pane.card{flex:none}
+.role-pane.skills,.role-pane.files{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
 .role-pane .pane-title{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:6px;border-bottom:1px dashed var(--line2);padding-bottom:5px}
 .role-pane .pane-title em{flex:1}
 #btnEditRole{margin-left:auto;flex:none}
 .role-pane .pane-title em{color:var(--faint);font-style:normal;margin-left:6px;letter-spacing:0}
 .role-pane .pane-body{max-height:220px;overflow-y:auto;padding-right:4px}
+.role-pane.skills .pane-body,.role-pane.files .pane-body{flex:1;min-height:0;overflow-y:auto}
 .role-pane .pane-body::-webkit-scrollbar{width:6px}
 .role-pane .pane-body::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .role-pane .pane-body::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
@@ -394,7 +397,6 @@ main{flex:1;overflow:hidden}
 .skill-cap{display:inline-flex;align-items:center;background:rgba(2,132,199,.10);color:var(--gold);border:1px solid rgba(2,132,199,.45);border-radius:999px;padding:2px 10px;font-size:10.5px;line-height:1.6;white-space:nowrap;cursor:default}
 .skill-cap.add{background:transparent;border:1px dashed var(--gold);color:var(--gold);cursor:pointer}
 .skill-cap.add:hover{background:rgba(2,132,199,.10);border-style:solid}
-.role-pane.files .pane-body{max-height:220px}
 .rno-file{display:flex;flex-direction:column;gap:2px;padding:6px 8px;margin:4px 0;border:1px solid var(--line2);border-radius:6px;cursor:pointer;background:rgba(2,132,199,.05)}
 /* ===== 知识库：档案卡片（R1 管理 · 全体共同维护） ===== */
 #view-kb.active{display:flex;flex-direction:column}
