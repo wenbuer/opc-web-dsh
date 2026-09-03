@@ -226,6 +226,43 @@
     }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; renderSkillCaps([]); });
     renderRoleList(code);
   }
+  /* 就地编辑角色：点「编辑角色」后把角色卡面板直接切换成可编辑表单，不弹窗 */
+  function aq(s){ return esc(s).split('"').join("&quot;"); }
+  function inlineEditRole(code){
+    var cb = $("roleCardBody"); if (!cb) return;
+    var eb = $("btnEditRole"); if (eb) eb.style.display = "none";
+    cb.innerHTML = "<div class='placeholder'>加载中…</div>";
+    api("/api/roles/card?no=" + encodeURIComponent(code)).then(function(j){
+      if (!j || !j.ok){ cb.innerHTML = "<div class='placeholder'>角色卡加载失败</div>"; if (eb) eb.style.display = "inline-block"; return; }
+      var o = parseCardFields(j.card || "");
+      cb.innerHTML = "<div class='role-edit-form'>"
+        + "<label>名称</label><input id='ieName' value='" + aq(o.name||'') + "' placeholder='必填，web 引用 / 工作区名称'>"
+        + "<label>定位</label><input id='iePosition' value='" + aq(o.position||'') + "' placeholder='一句话定位'>"
+        + "<label>类型</label><input id='ieType' value='" + aq(o.type||'') + "' placeholder='业务 / 技术 / 运营…'>"
+        + "<label>职责</label><textarea id='ieDuty' placeholder='每行一条，回车分隔'>" + esc((o.duty||[]).join(NL10)) + "</textarea>"
+        + "<div class='role-edit-actions'><button id='btnIeSave' class='btn-gold'>保存</button><button id='btnIeCancel'>取消</button><span id='ieMsg'></span></div>"
+        + "</div>";
+      var s = $("btnIeSave"); if (s) s.addEventListener("click", function(){ saveInlineRole(code); });
+      var c = $("btnIeCancel"); if (c) c.addEventListener("click", function(){ openRole(code); });
+      var n = $("ieName"); if (n) n.focus();
+    }).catch(function(e){ cb.innerHTML = "<div class='placeholder'>加载失败：" + esc(e.message) + "</div>"; if (eb) eb.style.display = "inline-block"; });
+  }
+  function saveInlineRole(code){
+    var name = ($("ieName").value || "").trim();
+    var msg = $("ieMsg");
+    if (msg) msg.textContent = "";
+    if (!name){ if (msg) msg.textContent = "名称必填"; return; }
+    var payload = { no: code, name: name, duty: ($("ieDuty").value || "").trim(), position: ($("iePosition").value || "").trim(), type: ($("ieType").value || "").trim() };
+    if (msg) msg.textContent = "保存中…";
+    post("/api/roles/edit", payload).then(function(jj){
+      if (jj && jj.ok){
+        loadRoles(); cacheRoles(); loadHome();
+        if (msg) msg.textContent = "✓ 已更新";
+        setTimeout(function(){ openRole(code); }, 900);
+      } else { if (msg) msg.textContent = "失败：" + esc(jj && jj.msg || "未知"); }
+    }).catch(function(e){ if (msg) msg.textContent = "失败：" + esc(e.message); });
+  }
+
   function renderRoleList(code){
     var fb = $("roleFilesBody");
     if (fb) fb.innerHTML = "<div class='placeholder'>加载中…</div>";
@@ -1366,7 +1403,7 @@
   }
   function bindRoleModal(){
     var a = $("orgAdd"); if (a) a.addEventListener("click", function(){ openRoleModal("add", ""); });
-    var e2 = $("btnEditRole"); if (e2) e2.addEventListener("click", function(){ openRoleModal("edit", e2.dataset.no || ""); });
+    var e2 = $("btnEditRole"); if (e2) e2.addEventListener("click", function(){ inlineEditRole(e2.dataset.no || ""); });
     var c = $("btnModalClose"); if (c) c.addEventListener("click", closeRoleModal);
     var s = $("btnModalRoleSave"); if (s) s.addEventListener("click", saveModalRole);
     var m = $("roleModal");
