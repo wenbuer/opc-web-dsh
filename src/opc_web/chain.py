@@ -108,7 +108,7 @@ def decompose(task_no, task_text):
               "。按职能合理拆分：能由一个角色一次完成（如单点调研/资料检索）就拆 1 个，"
               "只有确实需要多个职能并行或接力、单角色覆盖不了时才拆多个 —— 宁少勿多，总数不超过 %d 个。"
               "只输出派发单表格行，每行格式：| %s | 子任务描述 | R编号 | 期望产出 | 待派 |；"
-              "示例：| %s | 设计 KeepTalk 首页 | R8 | 界面设计稿 | 待派 |。"
+              "示例：| %s | 设计产品落地页 | R8 | 界面设计稿 | 待派 |。"
               "不要输出任何解释、提问或多余文字。任务：%s" % (max_subs, task_no, task_no, task_text))
     try:
         text = runner.run_headless_sync(prompt, config.tune("decomposeTimeout"))

@@ -223,7 +223,7 @@ class TestNamedRoles(unittest.TestCase):
 
     def test_head_named_single_and_multi(self):
         from opc_web import chain
-        self.assertEqual(chain.named_roles("R8开始设计KeepTalk App的前端界面", self.OK), ["R8"])
+        self.assertEqual(chain.named_roles("R8开始设计App的前端界面", self.OK), ["R8"])
         self.assertEqual(chain.named_roles("R2 和 R8 一起做落地页", self.OK), ["R2", "R8"])
         self.assertEqual(chain.named_roles("R3、R9 分头推进", self.OK), ["R3", "R9"])
 

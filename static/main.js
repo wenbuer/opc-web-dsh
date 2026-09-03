@@ -1762,7 +1762,7 @@
     var m = $("projMsg");
     var name = ($("projName").value || "").trim();
     var root = ($("projRoot").value || "").trim().replace(/\\/g, "/");   // Windows 反斜杠 → /，否则 JSON 转义崩
-    if (!root){ if (m) m.textContent = "项目目录必填（绝对路径，如 D:/opc/keeptalk）"; return; }
+    if (!root){ if (m) m.textContent = "项目目录必填（绝对路径，从右侧选择或手动输入）"; return; }
     if (m) m.textContent = "创建中…";
     projectAction("add", root, name);
   }
