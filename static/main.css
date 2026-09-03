@@ -67,6 +67,7 @@ body::after{
 main{flex:1;overflow:hidden}
 .view{display:none;height:100%}
 .view.active{display:block}
+#view-home.active{display:flex;flex-direction:column}
 
 /* ============ 批阅台 ============ */
 .piyue-layout{display:flex;height:100%}
@@ -246,13 +247,14 @@ main{flex:1;overflow:hidden}
 .markdown-body pre code{background:none;padding:0;color:#a8c4e6}
 .markdown-body hr{border:none;border-top:1px dashed var(--line);margin:18px 0}
 
-.overview-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;padding:12px 20px 0}
+.overview-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;padding:12px 20px 0;flex:none}
 .ov-item{flex:1;min-width:120px;padding:10px 14px;background:var(--panel);border:1px solid var(--line);border-radius:10px;font-size:11px;color:var(--dim)}
 .ov-item b{display:block;font-size:20px;font-weight:700;color:var(--gold);margin-top:3px}
-.home-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:14px;height:100%;padding:14px 18px 6px;overflow:auto}
+.home-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:14px;flex:1 1 0;min-height:0;padding:14px 18px 8px;overflow:hidden}
 .panel-head{font-size:12px;letter-spacing:2px;color:var(--gold);margin-bottom:12px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 .panel-head em{font-style:normal;color:var(--faint);font-size:10.5px;letter-spacing:.5px}
 .org-panel,.tl-panel,.task-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px}
+.org-panel{overflow-y:auto;min-height:0}
 
 /* 组织架构树 */
 .org-tree{display:flex;flex-direction:column;gap:4px}
@@ -346,7 +348,7 @@ main{flex:1;overflow:hidden}
 
 
 /* ===== 作战面板：角色工作区 ===== */
-.role-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.role-panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0;overflow-y:auto;min-height:0}
 .role-detail{max-height:560px;overflow:auto;margin-top:10px;border:1px dashed var(--line2);border-radius:8px;background:rgba(15,30,50,.05);padding:12px 14px}
 .role-detail .placeholder{color:var(--faint);font-size:11px}
 .role-card-doc h1{font-size:15px;color:var(--gold);margin:0 0 8px}
@@ -386,7 +388,7 @@ main{flex:1;overflow:hidden}
 .role-pane .pane-body::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .role-pane .pane-body::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
 /* 角色卡：完整显示全文、随内容增高、最低为默认高度、不出现内部滚动条 */
-.role-pane.card .pane-body{max-height:none;min-height:240px;overflow:visible;padding-right:0}
+.role-pane.card .pane-body{max-height:340px;min-height:0;overflow-y:auto;padding-right:0}
 /* 挂载技能胶囊（角色卡下方、工作区产物上方） */
 .role-pane.skills .pane-body.skill-caps{display:flex;flex-wrap:wrap;gap:6px;padding-right:0}
 .skill-cap{display:inline-flex;align-items:center;background:rgba(2,132,199,.10);color:var(--gold);border:1px solid rgba(2,132,199,.45);border-radius:999px;padding:2px 10px;font-size:10.5px;line-height:1.6;white-space:nowrap;cursor:default}
@@ -473,7 +475,7 @@ main{flex:1;overflow:hidden}
 .wb-col .dq-table,.wb-col .task-out,.wb-col .r1-out,.wb-col .rn-out{margin-top:0}
 
 /* ===== 首页：底部横轴时间线（原工作台时间线平移至此） ===== */
-.tl-strip{margin:0 20px 14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px}
+.tl-strip{margin:0 20px 12px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 14px;flex:none}
 .tl-strip .panel-head{margin-bottom:8px}
 .timeline-h{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
 .tl-h-item{flex:0 0 230px;background:rgba(15,30,50,.05);border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:8px;padding:8px 10px}
@@ -484,7 +486,7 @@ main{flex:1;overflow:hidden}
 .timeline-h::-webkit-scrollbar-thumb{background:rgba(2,132,199,.4);border-radius:3px}
 .timeline-h::-webkit-scrollbar-track{background:rgba(15,30,50,.06)}
 /* 首页：栅格让出底部给时间线，保证一屏不滚动 */
-.home-grid{height:calc(100% - 175px)}
+.home-grid{height:auto}
 
 /* ===== 首页：角色 → R1 派发任务（跟随角色卡片点击） ===== */
 .role-pane.plan{border-left-color:var(--indigo)}
