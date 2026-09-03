@@ -116,12 +116,12 @@
       card.className = "role-card";
       card.innerHTML = "<span class='rc-st " + stCls + "'>" + esc(r.status || "") + "</span>"
         + "<div class='rc-top'><span class='rc-name'>" + esc(r.name || r.code) + "</span><span class='rc-n'>" + esc(r.code) + "</span>"
-        + "<button class='rc-del' title='删除角色（需二次确认）'><svg viewBox='0 0 24 24' width='13' height='13' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 6h18'/><path d='M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2'/><path d='M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/><path d='M10 11v6'/><path d='M14 11v6'/></svg></button></div>"
+        + "<button class='rc-folder' title='查看项目文件'><svg viewBox='0 0 24 24' width='13' height='13' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z'/></svg></button><button class='rc-del' title='删除角色（需二次确认）'><svg viewBox='0 0 24 24' width='13' height='13' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 6h18'/><path d='M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2'/><path d='M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'/><path d='M10 11v6'/><path d='M14 11v6'/></svg></button></div>"
         + "<div class='rc-duty'>" + esc(r.duty || "") + "</div>"
-        + "<div class='rc-cur'>当前：" + esc(r.current || r.desc || "") + "</div>";
+        + "<div class='rc-cur'>当前：" + esc(r.current || "无") + "</div>";
       card.addEventListener("click", function(){ openRole(r.code); });
       var btDel = card.querySelector(".rc-del");
-      if (btDel) btDel.addEventListener("click", function(ev){ ev.stopPropagation(); openDelRoleModal(r.code, r.name || r.code); });
+      if (btDel) btDel.addEventListener("click", function(ev){ ev.stopPropagation(); openDelRoleModal(r.code, r.name || r.code); }); var btFolder = card.querySelector(".rc-folder"); if (btFolder) btFolder.addEventListener("click", function(ev){ ev.stopPropagation(); gotoRoleFiles(r.name || r.code); });
       grid.appendChild(card);
     });
     /* 原「未激活角色」位已改为固定「＋ 新增角色」入口（orgAdd）：点击弹窗新增角色；
@@ -149,11 +149,11 @@
   function openRole(code){
     var name = roleName(code);
     var tt = $("roleDetailTitle");
-    if (tt) tt.textContent = name + " 工作区";
+    if (tt) tt.textContent = name;
     var ct = $("roleCardTitle");
     var ft = $("roleFilesTitle");
     var st2 = $("roleSkillsTitle");
-    if (ct) ct.textContent = name;
+    if (ct) ct.textContent = code;
     if (ft) ft.textContent = name;
     if (st2) st2.textContent = name;
     var eb = $("btnEditRole"); if (eb){ eb.style.display = "inline-block"; eb.dataset.no = code; }
@@ -606,7 +606,7 @@
       var st = t.status || "";
       var txt;
       if (st.indexOf("完成") >= 0 || st.indexOf("部分") >= 0) txt = "✓ 已执行 · " + no + "（" + st + "）";
-      else if (st.indexOf("阻塞") >= 0) txt = "⚠ 未完成 · " + no + "（阻塞，可到工作台重试）";
+      else if (st.indexOf("阻塞") >= 0) txt = "未完成 · " + no + "（阻塞，可到工作台重试）";
       else txt = "执行中 · " + no + "（" + st + "）";
       el.textContent = txt;
     }).catch(function(){});
@@ -707,7 +707,7 @@
     if (mmT) taskNo = mmT[1];
     var h = "<div class='piyue-head'><h1><span class='n'>" + pre + it.n + "</span> " + esc(it.title) + "</h1><div class='piyue-head-ops'>";
     if (kind === "archive"){ h += "<span class='arch-badge'>✓ 已阅归档</span>"; }
-    if (kind === "work"){ h += "<button id='btnWorkArchive' class='mini'>归档（已阅）</button><span id='workMsg' class='form-status'></span>"; }
+    if (kind === "work"){ h += "<button id='btnWorkArchive' class='mini'>已阅归档</button><span id='workMsg' class='form-status'></span>"; }
     h += "</div></div>";
     // 任务信息（概要字段，始终可见）
     var extraHtml = "";
@@ -1202,7 +1202,7 @@
     api(path, payload).then(function(jj){
       if (jj && jj.ok){
         var r = jj.result || {};
-        $("roleMsg").textContent = (jj.preview ? "[预览] " : "") + (r.name || r.no || "") + "（" + (r.no || "") + "）已生成/更新：角色卡 + 工作区《" + (r.wsRel || "") + "》。";
+        $("roleMsg").textContent = (jj.preview ? "[预览] " : "") + (r.name || r.no || "") + "（" + (r.no || "") + "）已生成/更新";
         loadRoles(); cacheRoles(); loadHome();
       }
       else { $("roleMsg").textContent = "失败：" + (jj && jj.msg || "未知"); }
@@ -1259,8 +1259,8 @@
     var title = $("roleModalTitle"); if (title) title.textContent = (mode === "edit") ? "编辑角色 " + no : "＋ 新增角色";
     var hint = $("roleModalHint");
     if (hint) hint.textContent = (mode === "edit")
-      ? "保存后重新生成角色卡《agents/" + no + ".role.md》与工作区《名称/》"
-      : "自动编号 R10+ · 新增流程：角色卡 + 工作区《名称/》";
+      ? ""
+      : "";
     m.dataset.mode = mode; m.dataset.no = no;
     m.hidden = false;
     if (mode === "add"){
@@ -1299,11 +1299,11 @@
       skills: Array.prototype.map.call(document.querySelectorAll("#mRlSkills .skill-opt.sel"), function(el){ return el.dataset.name || ""; }).join("\n")
     };
     if (mode === "edit") payload.no = no;
-    if (msg) msg.textContent = mode === "edit" ? "保存中：重新生成角色卡…" : "保存中：生成角色卡…";
+    if (msg) msg.textContent = "保存中…";
     post(mode === "edit" ? "/api/roles/edit" : "/api/roles/add", payload).then(function(jj){
       if (jj && jj.ok){
         var r = jj.result || {};
-        if (msg) msg.textContent = (mode === "edit" ? "✓ 已更新 " : "✓ 已创建 ") + (r.name || payload.name) + "（" + (r.no || no) + "）：角色卡 + 工作区《" + (r.wsRel || "") + "》";
+        if (msg) msg.textContent = (mode === "edit" ? "✓ 已更新 " : "✓ 已创建 ") + (r.name || payload.name) + "（" + (r.no || no) + "）";
         loadRoles(); cacheRoles(); loadHome();
         if (mode === "edit" && no){ var ebtn = $("btnEditRole"); if (ebtn && ebtn.dataset.no === no) openRole(no); }
         setTimeout(closeRoleModal, 1600);
@@ -1388,7 +1388,7 @@
   }
 
   /* ================= 04 项目文件：各角色工作区（按角色/任务筛选；md 渲染、文本 txt 查看、不可读不放行） ================= */
-  var wsFiles = [], wsRole = "", wsTask = "";
+  var wsFiles = [], wsRole = "", wsTask = "", pendingWsRole = ""; function gotoRoleFiles(role){ pendingWsRole = role; var tab = document.querySelector('.tab[data-view="wsfiles"]'); if (tab){ tab.click(); } else { document.querySelectorAll(".view").forEach(function(x){ x.classList.remove("active"); }); var v = $("view-wsfiles"); if (v) v.classList.add("active"); loadWsFiles(); } }
   function wsFmtSize(n){
     n = Number(n) || 0;
     if (n < 1024) return n + " B";
@@ -1417,7 +1417,7 @@
       ts.innerHTML = "<option value=''>全部任务</option>"
         + tasks.map(function(x){ return "<option value='" + esc(x) + "'>" + esc(x) + "</option>"; }).join("")
         + (hasNone ? "<option value='__none__'>（无任务编号文件）</option>" : "");
-      renderWsList();
+      if (pendingWsRole){ var want = pendingWsRole; pendingWsRole = ""; if (rs && Array.prototype.some.call(rs.options, function(o){ return o.value === want; })){ rs.value = want; wsRole = want; } } renderWsList();
     }).catch(function(e){ if (box) box.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
   }
   function filteredWsFiles(){
@@ -1570,6 +1570,39 @@
 
   /* ================= 设置：目录选择 / 配置保存 ================= */
   /* ================= 设置：项目管理（一个 opc-web 对应多个 OPC 项目） ================= */
+  var dshSkills = [];
+  function loadDshSkills(){
+    var box = $("dshSkillList");
+    if (box) box.innerHTML = "<div class='placeholder'>加载中…</div>";
+    api("/api/dsh-skills").then(function(j){
+      if (!j || !j.ok){ if (box) box.innerHTML = "<div class='placeholder'>加载失败：" + esc(j && j.msg || "未知") + "</div>"; return; }
+      dshSkills = j.skills || [];
+      renderDshSkills();
+    }).catch(function(e){ if (box) box.innerHTML = "<div class='placeholder'>异常：" + esc(e.message) + "</div>"; });
+  }
+  function renderDshSkills(){
+    var box = $("dshSkillList"); if (!box) return;
+    var ss = $("skillSearch");
+    var q = (ss && ss.value || "").toLowerCase();
+    var list = dshSkills.filter(function(s){ return (!q || (s.name + " " + (s.desc || "")).toLowerCase().indexOf(q) >= 0); });
+    if (!list.length){ box.innerHTML = "<div class='placeholder'>无匹配技能；也可用 npx skills find 搜索在线市场</div>"; return; }
+    box.innerHTML = "";
+    list.forEach(function(s){
+      var el = document.createElement("div");
+      el.className = "skill-import-item";
+      el.innerHTML = "<div class='skill-import-info'><b>" + esc(s.name) + "</b><em>" + esc(s.desc || "") + "</em></div>"
+        + (s.installed ? "<span class='skill-import-st done'>已导入</span>" : "<button class='skill-import-btn'>导入</button>");
+      var btn = el.querySelector(".skill-import-btn");
+      if (btn) btn.addEventListener("click", function(){ importDshSkill(s.name); });
+      box.appendChild(el);
+    });
+  }
+  function importDshSkill(name){
+    post("/api/skill-import", {name: name}).then(function(j){
+      if (j && j.ok){ dshSkills = j.skills || []; renderDshSkills(); var m = $("skillMsg"); if (m) m.textContent = (j.msg || "已导入"); }
+      else { alert((j && j.msg) || "导入失败"); }
+    }).catch(function(e){ alert("导入失败：" + (e.message || "")); });
+  }
   function loadSettings(){
     api("/api/settings").then(function(j){
       if (!j || !j.ok){ var m = $("setMsg"); if (m) m.textContent = "读取设置失败：" + esc(j && j.msg || "未知"); return; }
@@ -1721,8 +1754,10 @@
         var pane = document.querySelector('.snav-pane[data-pane="' + k + '"]');
         if (pane) pane.classList.add("active");
         if (k === "tokens") loadTokenStats();
+        if (k === "skill") loadDshSkills();
       });
     });
+    var sss = $("skillSearch"); if (sss && !sss.dataset.bound){ sss.dataset.bound = "1"; sss.addEventListener("input", renderDshSkills); }
     var ps = $("projSel");
     if (ps && !ps.dataset.bound){
       ps.dataset.bound = "1";

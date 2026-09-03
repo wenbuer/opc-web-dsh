@@ -99,11 +99,11 @@ def parse_roles() -> list:
         it["status"] = "指挥中" if code in ("R0", "R1") else ("执行中" if code in busy else "待命中")
         e = last_exec.get(code)
         if e and e.get("sub"):                 # 最近一次执行：执行中=正在做的，待命中=上次做的
-            it["current"], it["ref"] = e["sub"][:44], "子任务 " + e["sub_no"]
+            it["current"], it["ref"] = (e["sub_no"].rsplit("-S", 1)[0] if "-S" in e["sub_no"] else e["sub_no"]), "子任务 " + e["sub_no"]
         elif code in latest_sub:               # 无执行记录（如 md 迁移来的历史数据）→ 退到最新子任务
-            it["current"], it["ref"] = latest_sub[code]["sub"][:44], "子任务 " + latest_sub[code]["no"]
+            it["current"], it["ref"] = latest_sub[code]["taskNo"], "子任务 " + latest_sub[code]["no"]
         else:
-            it["current"], it["ref"] = "暂无执行记录", ""
+            it["current"], it["ref"] = "无", ""
     return rows
 
 

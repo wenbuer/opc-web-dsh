@@ -4,7 +4,11 @@
 每个端点 = 一个"产生响应 dict"的函数，交给 _ok() 统一输出：
 成功 → JSON；ApiError → 其状态码；其它异常 → err（默认 500）。"""
 import json
+import os
+import re
+import shutil
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import parse_qs, unquote
 
 from . import bootstrap, config, knowledge, parsers, review, roles, runner, scheduler, store
@@ -131,6 +135,67 @@ class Handler(BaseHTTPRequestHandler):
         names = sorted(p.name for p in d.glob("*.md")) if d.is_dir() else []
         return {"ok": True, "skills": names, "dir": str(d)}
 
+    def _dsh_skill_dirs(self):
+        home = Path(os.environ.get("DSH_HOME") or (Path.home() / ".dsh"))
+        dirs, seen = [], set()
+        def add(p):
+            if p.is_dir() and (p / "SKILL.md").exists() and p.name not in seen:
+                seen.add(p.name); dirs.append(p)
+        usr = home / "skills"
+        if usr.is_dir():
+            for p in sorted(usr.iterdir()):
+                add(p)
+        prof = home / "profiles"
+        if prof.is_dir():
+            for pd in sorted(prof.iterdir()):
+                nm = pd / "node_modules"
+                if nm.is_dir():
+                    for sk in sorted(nm.glob("**/skills/*/SKILL.md")):
+                        add(sk.parent)
+        return sorted(dirs, key=lambda p: p.name.lower())
+
+    def _skill_desc(self, sk):
+        try:
+            txt = sk.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            return ""
+        m = re.search(r"^---\s*\n([\s\S]*?)\n---", txt)
+        fm = m.group(1) if m else ""
+        dm = re.search(r"(?m)^description:\s*[>|]?\s*([\s\S]*?)(?=^---|\Z)", fm)
+        return " ".join((dm.group(1) or "").split())[:200] if dm else ""
+
+    def _get_dsh_skills(self):
+        dirs = self._dsh_skill_dirs()
+        if not dirs:
+            return {"ok": True, "skills": [], "dirs": [], "msg": "未找到 dsh 技能目录"}
+        lib = config.AGENTS_DIR / config.SKILLS_REL
+        lib_names = {p.name for p in lib.glob("*.md")} if lib.is_dir() else set()
+        skills = []
+        for p in dirs:
+            if not p.is_dir() or p.name.startswith("."):
+                continue
+            if (p / "SKILL.md").exists():
+                skills.append({"name": p.name, "desc": self._skill_desc(p / "SKILL.md"),
+                               "installed": (p.name + ".md") in lib_names, "path": str(p)})
+        return {"ok": True, "skills": skills, "dirs": [str(x) for x in dirs]}
+
+    def _import_skill(self):
+        body = self._body() or {}
+        name = str(body.get("name", "")).strip()
+        if not name:
+            raise ApiError(400, "缺少技能名 name")
+        if not re.fullmatch(r"[A-Za-z0-9._-]+", name):
+            raise ApiError(400, "技能名非法")
+        src = next((p for p in self._dsh_skill_dirs() if p.name == name), None)
+        if src is None or not (src / "SKILL.md").exists():
+            raise ApiError(404, "dsh 技能 " + name + " 不存在")
+        lib = config.AGENTS_DIR / config.SKILLS_REL
+        lib.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src / "SKILL.md", lib / (name + ".md"))
+        shutil.copytree(src, lib / name, dirs_exist_ok=True)
+        return {"ok": True, "name": name, "installed": True,
+                "msg": "已导入「" + name + "」到技能库", "skills": self._get_dsh_skills()["skills"]}
+
     def _get_events(self):
         since = int(self._qs().get("since", ["0"])[0] or 0)
         return runner.events(since)
@@ -181,6 +246,8 @@ class Handler(BaseHTTPRequestHandler):
             self._ok(self._get_role_card)
         elif url == "/api/skills":
             self._ok(self._get_skill_lib)
+        elif url == "/api/dsh-skills":
+            self._ok(self._get_dsh_skills)
         elif url == "/api/projects":
             self._json({"ok": True, "projects": config.projects(),
                         "active": config.active_project(), "seedRoles": config.settings_info()["seedRoles"]})
@@ -448,6 +515,8 @@ class Handler(BaseHTTPRequestHandler):
             self._ok(self._post_work_archive, err=400)
         elif url == "/api/piyue":
             self._ok(self._post_piyue, err=400)
+        elif url == "/api/skill-import":
+            self._ok(self._import_skill, err=400)
         else:
             self._json({"ok": False, "msg": "未知接口"}, 404)
 
