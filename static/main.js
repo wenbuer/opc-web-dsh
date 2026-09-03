@@ -142,11 +142,13 @@
     var body = $("roleSkillsBody");
     if (!body) return;
     body.innerHTML = "";
-    if (!names || !names.length){
-      body.innerHTML = "<div class='placeholder'>未装配技能 —— 点「编辑角色」在弹窗里从 agents/skills/ 勾选</div>";
-      return;
-    }
-    names.forEach(function(n){
+    var add = document.createElement("span");
+    add.className = "skill-cap add";
+    add.textContent = "＋ 新增技能";
+    add.title = "装配技能（打开角色编辑）";
+    add.addEventListener("click", function(){ openRoleModal("edit", state.curNo || ""); });
+    body.appendChild(add);
+    (names || []).forEach(function(n){
       var c = document.createElement("span");
       c.className = "skill-cap";
       c.textContent = skillStem(n);
@@ -1772,7 +1774,7 @@
       });
     });
     var sss = $("skillSearch"); if (sss && !sss.dataset.bound){ sss.dataset.bound = "1"; sss.addEventListener("input", renderDshSkills); }
-    var bas = $("btnAddSkill"); if (bas && !bas.dataset.bound){ bas.dataset.bound = "1"; bas.addEventListener("click", function(){ openRoleModal("edit", state.curNo || ""); }); }
+
     var lis = $("linkImportSkill"); if (lis) lis.addEventListener("click", gotoSkillImport);
     var ps = $("projSel");
     if (ps && !ps.dataset.bound){
