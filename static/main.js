@@ -1816,7 +1816,9 @@
     });
     var sss = $("skillSearch"); if (sss && !sss.dataset.bound){ sss.dataset.bound = "1"; sss.addEventListener("input", renderDshSkills); }
 
-    var lis = $("linkImportSkill"); if (lis) lis.addEventListener("click", gotoSkillImport);
+    var sac = $("skillAddClose"); if (sac) sac.addEventListener("click", closeSkillAdd);
+    var li2 = $("linkImportSkill2"); if (li2) li2.addEventListener("click", gotoSkillImport);
+    var bss = $("btnSkillAddSave"); if (bss) bss.addEventListener("click", saveSkillAdd);
     var ps = $("projSel");
     if (ps && !ps.dataset.bound){
       ps.dataset.bound = "1";
