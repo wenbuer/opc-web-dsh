@@ -394,6 +394,7 @@ main{flex:1;overflow:hidden}
 .skill-cap{display:inline-flex;align-items:center;background:rgba(2,132,199,.10);color:var(--gold);border:1px solid rgba(2,132,199,.45);border-radius:999px;padding:2px 10px;font-size:10.5px;line-height:1.6;white-space:nowrap;cursor:default}
 .skill-cap.add{background:transparent;border:1px dashed var(--gold);color:var(--gold);cursor:pointer}
 .skill-cap.add:hover{background:rgba(2,132,199,.10);border-style:solid}
+.role-pane.files .pane-body{max-height:220px}
 .rno-file{display:flex;flex-direction:column;gap:2px;padding:6px 8px;margin:4px 0;border:1px solid var(--line2);border-radius:6px;cursor:pointer;background:rgba(2,132,199,.05)}
 /* ===== 知识库：档案卡片（R1 管理 · 全体共同维护） ===== */
 #view-kb.active{display:flex;flex-direction:column}

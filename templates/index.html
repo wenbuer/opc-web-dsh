@@ -311,13 +311,23 @@
         <input id="mRlPosition" placeholder="一句话定位">
         <input id="mRlType" placeholder="类型（业务/技术/运营…）">
         <textarea id="mRlDuty" placeholder="职责（每行一条，回车分隔）"></textarea>
-        <div class="skills-pick-caption">装配技能 <a href="javascript:void(0)" id="linkImportSkill">去 Skill 导入</a></div>
-        <div id="mRlSkills" class="skills-pick"></div>
       </div>
       <div class="modal-foot">
         <button id="btnModalRoleSave">保存</button>
         <span id="mRoleMsg"></span>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== 新增技能弹窗（挂载技能 → ＋ 新增技能） ===== -->
+  <div class="modal-mask" id="skillAddModal" hidden>
+    <div class="modal-box">
+      <div class="modal-head"><span id="skillAddTitle">新增技能</span><em id="skillAddRole"></em><button class="modal-x" id="skillAddClose" title="关闭（Esc）">×</button></div>
+      <div class="form">
+        <div class="skills-pick-caption">选择要挂载的技能 <a href="javascript:void(0)" id="linkImportSkill2">去 Skill 导入</a></div>
+        <div id="skillAddList" class="skills-pick"></div>
+      </div>
+      <div class="modal-foot"><button id="btnSkillAddSave">挂载</button><span id="skillAddMsg"></span></div>
     </div>
   </div>
 

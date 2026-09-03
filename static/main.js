@@ -146,7 +146,7 @@
     add.className = "skill-cap add";
     add.textContent = "＋ 新增技能";
     add.title = "装配技能（打开角色编辑）";
-    add.addEventListener("click", function(){ openRoleModal("edit", state.curNo || ""); });
+    add.addEventListener("click", function(){ openSkillAddModal(); });
     body.appendChild(add);
     (names || []).forEach(function(n){
       var c = document.createElement("span");
@@ -156,6 +156,49 @@
       body.appendChild(c);
     });
   }
+  function openSkillAddModal(){
+    var m = $("skillAddModal"); if (!m) return;
+    var no = state.curNo || "", name = roleName(no) || "";
+    var t = $("skillAddTitle"); if (t) t.textContent = "新增技能";
+    var r = $("skillAddRole"); if (r) r.textContent = "挂载到 " + (name || no);
+    m.dataset.no = no;
+    var box = $("skillAddList");
+    if (box) box.innerHTML = "<div class='skills-pick-empty'>加载技能库…</div>";
+    api("/api/skills").then(function(j){ renderSkillAddPick((j && j.skills) || []); })
+      .catch(function(){ if (box) box.innerHTML = "<div class='skills-pick-empty'>加载失败</div>"; });
+    m.hidden = false;
+  }
+  function renderSkillAddPick(list){
+    var box = $("skillAddList"); if (!box) return;
+    box.innerHTML = "";
+    if (!list || !list.length){ box.innerHTML = "<div class='skills-pick-empty'>暂无技能 —— 点「去 Skill 导入」添加</div>"; return; }
+    list.forEach(function(n){
+      var c = document.createElement("span");
+      c.className = "skill-opt";
+      c.textContent = skillStem(n);
+      c.title = "agents/skills/" + n;
+      c.dataset.name = skillStem(n);
+      c.addEventListener("click", function(){ c.classList.toggle("sel"); });
+      box.appendChild(c);
+    });
+  }
+  function saveSkillAdd(){
+    var m = $("skillAddModal"), no = (m && m.dataset.no) || "";
+    var msg = $("skillAddMsg");
+    if (!no){ if (msg) msg.textContent = "未选中角色"; return; }
+    var sel = Array.prototype.map.call(document.querySelectorAll("#skillAddList .skill-opt.sel"), function(el){ return el.dataset.name; });
+    if (!sel.length){ if (msg) msg.textContent = "请先勾选要挂载的技能"; return; }
+    api("/api/roles/card?no=" + encodeURIComponent(no)).then(function(jc){
+      var cur = [];
+      try { cur = parseCardFields((jc && jc.card) || "").skills || []; } catch(e){ cur = []; }
+      var merged = cur.concat(sel.filter(function(s){ return cur.indexOf(s) < 0; }));
+      post("/api/roles/edit", { no: no, skills: merged.join("\n") }).then(function(j){
+        if (j && j.ok){ if (msg) msg.textContent = (j.msg || "已挂载"); closeSkillAdd(); if (state.curNo) openRole(state.curNo); }
+        else { if (msg) msg.textContent = (j && j.msg || "失败"); }
+      }).catch(function(){ if (msg) msg.textContent = "异常"; });
+    });
+  }
+  function closeSkillAdd(){ var m = $("skillAddModal"); if (m) m.hidden = true; }
   function openRole(code){
     state.curNo = code;
     var name = roleName(code);
@@ -1284,11 +1327,9 @@
         var p1 = $("mRlPosition"); if (p1) p1.value = o.position || "";
         var t1 = $("mRlType"); if (t1) t1.value = o.type || "";
         var d1 = $("mRlDuty"); if (d1) d1.value = (o.duty || []).join(NL10);
-        _pick.sel = o.skills || [];
         _pick.card = true; pickDone();
       }).catch(function(){ _pick.card = true; pickDone(); });
     }
-    loadSkillPick();
     var n2 = $("mRlName"); if (n2) n2.focus();
   }
   function closeRoleModal(){
@@ -1307,7 +1348,7 @@
       duty: ($("mRlDuty").value || "").trim(),
       position: ($("mRlPosition").value || "").trim(),
       type: ($("mRlType").value || "").trim(),
-      skills: Array.prototype.map.call(document.querySelectorAll("#mRlSkills .skill-opt.sel"), function(el){ return el.dataset.name || ""; }).join("\n")
+
     };
     if (mode === "edit") payload.no = no;
     if (msg) msg.textContent = "保存中…";
