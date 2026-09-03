@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](https://www.python.org/)
 [![python deps](https://img.shields.io/badge/python%20deps-0%20pip%20packages-brightgreen.svg)](pyproject.toml)
 [![runtime](https://img.shields.io/badge/runtime-requires%20DSH-important.svg)](#快速开始)
-[![network](https://img.shields.io/badge/network-127.0.0.1%20only-purple.svg)](#隐私与提交规范)
+[![network](https://img.shields.io/badge/network-127.0.0.1%20only-purple.svg)](#配置与数据)
 [![stars](https://img.shields.io/github/stars/wenbuer/opc-web-dsh?style=social)](https://github.com/wenbuer/opc-web-dsh/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -85,7 +85,6 @@ opc-web 是一个本地运行的开源项目，定位为「AI 员工团队」的
 - [定时任务](#定时任务)
 - [配置与数据](#配置与数据)
 - [开发与测试](#开发与测试)
-- [隐私与提交规范](#隐私与提交规范)
 - [支持与致谢](#支持与致谢)
 - [许可证](#许可证)
 
@@ -241,22 +240,6 @@ python -m unittest discover -s tests -v
 ```
 
 - 工程结构：标准 src 布局，包 `src/opc_web/`（config / server / scheduler / chain / roles / review / store / agent / bootstrap …），入口 `python run.py` 或 `python -m opc_web`（等价 `opc-web` 命令）。
-
----
-
-## 隐私与提交规范
-
-上传 GitHub 前，以下内容默认**不提交**（已列入 `.gitignore`）：
-
-- `.env` —— 大模型 API 密钥（**绝对不要提交**）；
-- `opc-config.json` —— 本机运行配置（root / port）；
-- `批阅台/ 工作区/ 知识库/` —— 运行数据与业务内容。
-
-其他规范：
-
-- 提交前检查 `git status`：只应出现源码与文档（src/、templates/、static/、agents-seed/、tests/、run.py、pyproject.toml、README.md 等）；
-- 预览图统一放 `images/` 并用**相对路径**引用（如 `images/opc-command-center-01.png`），不引绝对路径或盘符路径，迁移后依然可显示；
-- 不用在仓库里提交本机临时脚本 / 调试产物（运行时日志、事件转储等）。
 
 ---
 
